@@ -38,3 +38,14 @@ Thumbs.db
 
 # HWP
 *.hwpx
+
+# 대용량 파일
+*.pkl
+*.dll
+sol_env/
+sol_env_312/
+btc_V1/test/
+btc_V1/test1/
+btc_V1/test2/
+btc_V1/test3/
+btc_V1/test4/
