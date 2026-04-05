@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(file /d/filesystem/futures/btc_V1/test4/*)",
+      "Bash(python bt_optimizer_v144.py validate)",
+      "Bash(python bt_optimizer_v144.py)",
+      "Bash(python run_v144.py)",
+      "Bash(python -c \":*)",
+      "Bash(python:*)",
+      "Bash(기획서 \")",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(tasklist)",
+      "Bash(taskkill /F /IM python.exe)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(cd:*)",
+      "Bash(taskkill /PID 4048 /F)",
+      "Bash(taskkill:*)",
+      "Read(//d/filesystem/futures/btc_V1/test/**)"
+    ]
+  }
+}

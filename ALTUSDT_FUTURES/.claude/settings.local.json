@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/filesystem/futures/sol_gpt_v4/**)",
+      "Read(//d/filesystem/**)",
+      "Bash(python:*)",
+      "Bash(dir:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

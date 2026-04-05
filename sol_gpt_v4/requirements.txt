@@ -1,0 +1,26 @@
+# SOL Futures Trading System v4.0 Requirements
+
+# Core dependencies
+ccxt>=4.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+asyncio-mqtt>=0.16.0
+aiohttp>=3.8.0
+websockets>=11.0
+
+# OpenAI
+openai>=1.0.0
+
+# Logging and monitoring
+rich>=13.0.0
+python-dotenv>=1.0.0
+
+# Database
+aiosqlite>=0.19.0
+
+# Optional: Technical Analysis (if you want to use TA-Lib)
+# TA-Lib>=0.4.28  # Requires separate installation on Windows
+
+# Additional utilities
+python-dateutil>=2.8.0
+pytz>=2023.3

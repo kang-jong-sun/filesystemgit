@@ -1,0 +1,17 @@
+{
+  "A_Trend": {
+    "name": "A_Trend",
+    "balance": 1466.5,
+    "return_pct": -70.7,
+    "trades": 367,
+    "pf": 0.44,
+    "mdd": 70.7,
+    "win_rate": 22.9,
+    "sl": 278,
+    "tsl": 89,
+    "rev": 0,
+    "tp": 0,
+    "time": 0,
+    "fl": 0,
+    "yearly": {
+      

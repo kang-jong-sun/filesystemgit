@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python optimizer_v12.py)",
+      "Bash(python optimizer_v07.py)",
+      "Bash(python backtest_compare.py)",
+      "Bash(python monthly_report.py)",
+      "Bash(python grand_selector.py)",
+      "Bash(tasklist)",
+      "Bash(taskkill //F //PID 6400)",
+      "Bash(python grand_selector2.py)",
+      "Bash(python grand_10m15m.py)",
+      "Bash(while read:*)",
+      "Bash(do taskkill:*)",
+      "Bash(done)",
+      "Bash(python grand_v2.py)",
+      "Bash(python grand_v3.py)",
+      "Bash(python test_1m3m.py)",
+      "Bash(python deep_analysis.py)",
+      "Bash(python test_bb_impact.py)",
+      "Bash(python bb_monthly.py)",
+      "Bash(python bb_removed_trades.py)",
+      "Bash(python trades_2026.py)",
+      "Bash(python trades_2026_kst.py)",
+      "Bash(python test_wma3000.py)",
+      "Bash(python test_ema4000.py)",
+      "Bash(python mega_optimizer.py)",
+      "Bash(python download_5m_5years.py)",
+      "Bash(python backtest_75months.py)",
+      "Bash(python v13_optimizer.py)",
+      "Bash(python v13_fast.py)",
+      "Bash(python v13_monthly.py)",
+      "Bash(python v135_mega.py)",
+      "Bash(cat /c/Users/*/AppData/Local/Temp/claude/D--filesystem-futures-btc-V1-test/*/tasks/bhvwj4kys.output)",
+      "Bash(python v135_run.py)",
+      "Bash(python v135_quick.py)",
+      "Bash(python v135_fixed.py)",
+      "Bash(python v135_monthly.py)"
+    ]
+  }
+}

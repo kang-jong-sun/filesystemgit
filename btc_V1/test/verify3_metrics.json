@@ -1,0 +1,185 @@
+{
+  "portfolio": {
+    "final": 1675.04,
+    "return": -44.17,
+    "trades": 9,
+    "pf": 0.07,
+    "tracks": {
+      "A": {
+        "final": 1037.2,
+        "return": -15.26,
+        "trades": 2,
+        "wins": 0,
+        "wr": 0.0,
+        "pf": 0.0,
+        "mdd": -42.38,
+        "gp": 0,
+        "gl": 755.73,
+        "sl": 1,
+        "tsl": 0,
+        "rev": 1
+      },
+      "B": {
+        "final": 637.84,
+        "return": -7.5,
+        "trades": 7,
+        "wins": 1,
+        "wr": 14.3,
+        "pf": 0.15,
+        "mdd": -46.85,
+        "gp": 97.36,
+        "gl": 643.59,
+        "sl": 1,
+        "tsl": 1,
+        "rev": 5
+      }
+    },
+    "mdd": -46.85
+  },
+  "bt_results": [
+    {
+      "run": 1,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 0.07,
+      "trades": 9
+    },
+    {
+      "run": 2,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 3,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 4,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 5,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 6,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 7,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 8,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 9,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 10,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    }
+  ],
+  "vr_results": [
+    {
+      "run": 1,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 2,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 3,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 4,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 5,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 6,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 7,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 8,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 9,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    },
+    {
+      "run": 10,
+      "final": 1675.04,
+      "return": -44.17,
+      "pf": 999,
+      "trades": 0
+    }
+  ],
+  "consistency": {
+    "std": 0.0,
+    "deterministic": 

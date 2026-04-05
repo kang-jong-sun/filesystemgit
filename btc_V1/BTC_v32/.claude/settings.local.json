@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python mega_backtest_v134.py)",
+      "Bash(ls:*)",
+      "Bash(python:*)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(pip install:*)",
+      "Bash(PYTHONPATH=. PYTHONUNBUFFERED=1 python -u detail_monthly.py)",
+      "Bash(pip list:*)",
+      "Bash(tasklist)",
+      "Bash(kill 775 789 781 792)",
+      "Bash(kill 1899)",
+      "Bash(python -c \":*)",
+      "Bash(cd:*)",
+      "Bash(where python:*)",
+      "Bash(pip3 install:*)",
+      "Bash(\"C:\\\\Users\\\\대표\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe\" -m pip install openpyxl)",
+      "Bash(\"C:\\\\Users\\\\대표\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python312\\\\python.exe\" -m pip install openpyxl --force-reinstall -q)"
+    ]
+  }
+}

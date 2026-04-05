@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python btc_v32_6engine_crossval.py)",
+      "Bash(PYTHONIOENCODING=utf-8 python btc_v32_6engine_crossval.py)"
+    ]
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "portfolio": {
+    "initial": 3000.0,
+    "final": 3119.72,
+    "pnl": 119.72,
+    "roi_pct": 3.99,
+    "total_trades": 253
+  },
+  "tiers": {
+    "Tier1_Sniper": {
+      "tier": "Tier1_Sniper",
+      "trades": 16,
+      "wins": 7,
+      "losses": 9,
+      "win_rate": 43.75,
+      "total_pnl": -55.22,
+      "gross_profit": 197.9,
+      "gross_loss": 253.12,
+      "profit_factor": 0.782,
+      "avg_win": 28.27,
+      "avg_loss": -28.12,
+      "final_balance": 825.3,
+      "roi_pct": -8.3,
+      "max_drawdown_pct": -13.74,
+      "avg_hold_bars": 7.5,
+      "exit_reasons": {
+        "TRAIL": 9,
+        "SL": 6,
+        "REVERSE": 1
+      },
+      "long_trades": 11,
+      "short_trades": 5,
+      "long_pnl": -3.01,
+      "short_pnl": -52.21
+    },
+    "Tier2_Core": {
+      "tier": "Tier2_Core",
+      "trades": 57,
+      "wins": 32,
+      "losses": 25,
+      "win_rate": 56.14,
+      "total_pnl": 364.6,
+      "gross_profit": 1004.35,
+      "gross_loss": 639.75,
+      "profit_factor": 1.57,
+      "avg_win": 31.39,
+      "avg_loss": -25.59,
+      "final_balance": 1506.41,
+      "roi_pct": 25.53,
+      "max_drawdown_pct": -12.95,
+      "avg_hold_bars": 16.8,
+      "exit_reasons": {
+        "TRAIL": 36,
+        "SL": 12,
+        "REVERSE": 9
+      },
+      "long_trades": 30,
+      "short_trades": 27,
+      "long_pnl": 280.81,
+      "short_pnl": 83.79
+    },
+    "Tier3_Compounder": {
+      "tier": "Tier3_Compounder",
+      "trades": 180,
+      "wins": 72,
+      "losses": 108,
+      "win_rate": 40.0,
+      "total_pnl": 103.03,
+      "gross_profit": 1961.71,
+      "gross_loss": 1858.68,
+      "profit_factor": 1.055,
+      "avg_win": 27.25,
+      "avg_loss": -17.21,
+      "final_balance": 788.01,
+      "roi_pct": -12.44,
+      "max_drawdown_pct": -23.48,
+      "avg_hold_bars": 5.4,
+      "exit_reasons": {
+        "TRAIL": 90,
+        "REVERSE": 56,
+        "SL": 34
+      },
+      "long_trades": 75,
+      "short_trades": 105,
+      "long_pnl": -58.53,
+      "short_pnl": 161.56
+    }
+  },
+  "verification_30run": {
+    "unique_results": 1,
+    "mean": 3119.72,
+    "std": 0.0
+  }
+}

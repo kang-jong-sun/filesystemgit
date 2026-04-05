@@ -1,0 +1,18 @@
+{
+  "initial": 3000.0,
+  "final": 24653.05,
+  "return_pct": 721.77,
+  "trades": 29,
+  "pf": 5.9178,
+  "mdd": -16.16,
+  "win_rate": 89.66,
+  "avg_win": 25.77,
+  "avg_loss": -27.15,
+  "rr": 0.95,
+  "max_consec_loss": 1,
+  "gross_profit": 26366.09,
+  "gross_loss": 4455.38,
+  "sl_count": 2,
+  "trail_count": 26,
+  "rev_count": 1
+}

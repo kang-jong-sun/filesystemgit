@@ -1,0 +1,40 @@
+# 환경변수 (API 키)
+.env
+*.env
+
+# 데이터 파일 (용량 큼)
+*.csv
+
+# DB
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+sol_env/
+sol_env_312/
+
+# 로그
+logs/
+*.log
+*.txt
+!requirements.txt
+
+# 상태
+state/
+
+# 임시
+*.tmp
+nul
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Word/PDF 보고서 (선택적)
+*.docx
+*.pdf
+
+# HWP
+*.hwpx

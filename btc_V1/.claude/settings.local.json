@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(python download_btc_1m_data.py)",
+      "Bash(python backtest_v50_monthly.py)",
+      "Bash(python analyze_v50_trades.py)",
+      "Bash(python backtest_v50_improved.py)",
+      "Bash(python optimizer_v10.py)",
+      "Bash(python backtest_v101_verify.py)",
+      "Bash(python -c \"import pandas, numpy; print\\('pandas:', pandas.__version__, 'numpy:', numpy.__version__\\)\")",
+      "Bash(python -c \"import numba; print\\('numba:', numba.__version__\\)\")",
+      "Bash(python six_engine_verify.py)",
+      "Bash(python -u six_engine_verify.py)",
+      "Bash(grep -E \"\\\\\\\\.py$\")",
+      "Bash(ls -lha \"D:\\\\filesystem\\\\futures\\\\btc_V1\\\\test\\\\eth\"*)",
+      "Bash(python -c ':*)",
+      "Bash(python -c \"from dotenv import load_dotenv; print\\('dotenv: OK'\\)\")",
+      "Bash(python -c \"import openai; print\\('openai:', openai.__version__\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python -m pip install aiosqlite)",
+      "Bash(python -m pip install websockets)",
+      "Bash(python btc_main_v32.py)",
+      "Bash(ls:*)",
+      "Bash(D:/sol_env/Scripts/python.exe -m pip install --force-reinstall cffi cryptography)",
+      "Bash(D:/sol_env/Scripts/python.exe:*)",
+      "Bash(tasklist /FI \"IMAGENAME eq python.exe\")",
+      "Bash(wmic process:*)",
+      "Bash(kill 1473)",
+      "Bash(xargs kill:*)"
+    ],
+    "deny": []
+  }
+}

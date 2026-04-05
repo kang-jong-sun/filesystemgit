@@ -1,0 +1,1979 @@
+{
+  "tier1": {
+    "balance": 15071.93,
+    "mdd": 4.36,
+    "total_trades": 25,
+    "trades": [
+      {
+        "entry_time": "2020-03-30 08:00:00",
+        "exit_time": "2020-04-01 12:00:00",
+        "direction": "LONG",
+        "entry_price": 6273.38,
+        "exit_price": 6222.08,
+        "roi_pct": -0.82,
+        "pnl": -60.6,
+        "balance_after": 2939.4,
+        "close_type": "REV",
+        "margin_used": 450.0,
+        "highest_roi_pct": 5.05
+      },
+      {
+        "entry_time": "2020-05-09 12:45:00",
+        "exit_time": "2020-05-09 21:15:00",
+        "direction": "LONG",
+        "entry_price": 9681.0,
+        "exit_price": 9646.72,
+        "roi_pct": -0.35,
+        "pnl": -28.71,
+        "balance_after": 2910.69,
+        "close_type": "REV",
+        "margin_used": 440.91,
+        "highest_roi_pct": 1.06
+      },
+      {
+        "entry_time": "2020-08-10 11:45:00",
+        "exit_time": "2020-08-11 07:00:00",
+        "direction": "LONG",
+        "entry_price": 11741.77,
+        "exit_price": 11779.76,
+        "roi_pct": 0.32,
+        "pnl": 15.95,
+        "balance_after": 2926.64,
+        "close_type": "REV",
+        "margin_used": 436.6,
+        "highest_roi_pct": 1.91
+      },
+      {
+        "entry_time": "2020-08-16 13:45:00",
+        "exit_time": "2020-08-17 02:15:00",
+        "direction": "LONG",
+        "entry_price": 11826.51,
+        "exit_price": 11808.69,
+        "roi_pct": -0.15,
+        "pnl": -15.19,
+        "balance_after": 2911.45,
+        "close_type": "REV",
+        "margin_used": 439.0,
+        "highest_roi_pct": 0.8
+      },
+      {
+        "entry_time": "2021-07-05 06:30:00",
+        "exit_time": "2021-07-05 07:00:00",
+        "direction": "LONG",
+        "entry_price": 34314.13,
+        "exit_price": 34119.98,
+        "roi_pct": -0.57,
+        "pnl": -42.3,
+        "balance_after": 2869.15,
+        "close_type": "REV",
+        "margin_used": 436.72,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2021-08-05 15:30:00",
+        "exit_time": "2021-08-09 00:30:00",
+        "direction": "LONG",
+        "entry_price": 39201.97,
+        "exit_price": 43196.8,
+        "roi_pct": 10.19,
+        "pnl": 652.68,
+        "balance_after": 3521.83,
+        "close_type": "TSL",
+        "margin_used": 430.37,
+        "highest_roi_pct": 15.27
+      },
+      {
+        "entry_time": "2021-10-12 23:00:00",
+        "exit_time": "2021-10-13 04:45:00",
+        "direction": "LONG",
+        "entry_price": 56370.27,
+        "exit_price": 56081.27,
+        "roi_pct": -0.51,
+        "pnl": -46.96,
+        "balance_after": 3474.87,
+        "close_type": "REV",
+        "margin_used": 528.27,
+        "highest_roi_pct": 0.18
+      },
+      {
+        "entry_time": "2021-12-13 13:30:00",
+        "exit_time": "2021-12-14 21:30:00",
+        "direction": "SHORT",
+        "entry_price": 48506.91,
+        "exit_price": 48450.99,
+        "roi_pct": 0.12,
+        "pnl": 2.76,
+        "balance_after": 3477.63,
+        "close_type": "REV",
+        "margin_used": 521.23,
+        "highest_roi_pct": 5.07
+      },
+      {
+        "entry_time": "2022-02-04 15:00:00",
+        "exit_time": "2022-02-08 15:00:00",
+        "direction": "LONG",
+        "entry_price": 38700.0,
+        "exit_price": 43044.02,
+        "roi_pct": 11.22,
+        "pnl": 872.05,
+        "balance_after": 4349.67,
+        "close_type": "TSL",
+        "margin_used": 521.64,
+        "highest_roi_pct": 16.76
+      },
+      {
+        "entry_time": "2022-06-16 03:15:00",
+        "exit_time": "2022-06-18 22:15:00",
+        "direction": "SHORT",
+        "entry_price": 22308.0,
+        "exit_price": 19359.9,
+        "roi_pct": 13.22,
+        "pnl": 1285.53,
+        "balance_after": 5635.21,
+        "close_type": "TSL",
+        "margin_used": 652.45,
+        "highest_roi_pct": 20.61
+      },
+      {
+        "entry_time": "2022-07-31 01:30:00",
+        "exit_time": "2022-07-31 05:45:00",
+        "direction": "LONG",
+        "entry_price": 23722.8,
+        "exit_price": 23699.9,
+        "roi_pct": -0.1,
+        "pnl": -22.38,
+        "balance_after": 5612.82,
+        "close_type": "REV",
+        "margin_used": 845.28,
+        "highest_roi_pct": 0.37
+      },
+      {
+        "entry_time": "2022-11-07 02:45:00",
+        "exit_time": "2022-11-07 03:00:00",
+        "direction": "LONG",
+        "entry_price": 20977.4,
+        "exit_price": 20905.1,
+        "roi_pct": -0.34,
+        "pnl": -53.63,
+        "balance_after": 5559.19,
+        "close_type": "REV",
+        "margin_used": 841.92,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2022-11-07 04:15:00",
+        "exit_time": "2022-11-10 06:15:00",
+        "direction": "SHORT",
+        "entry_price": 20860.4,
+        "exit_price": 16718.6,
+        "roi_pct": 19.85,
+        "pnl": 2473.47,
+        "balance_after": 8032.67,
+        "close_type": "TSL",
+        "margin_used": 833.88,
+        "highest_roi_pct": 24.88
+      },
+      {
+        "entry_time": "2022-12-22 21:30:00",
+        "exit_time": "2022-12-23 14:30:00",
+        "direction": "LONG",
+        "entry_price": 16797.4,
+        "exit_price": 16791.1,
+        "roi_pct": -0.04,
+        "pnl": -21.24,
+        "balance_after": 8011.43,
+        "close_type": "REV",
+        "margin_used": 1204.9,
+        "highest_roi_pct": 0.5
+      },
+      {
+        "entry_time": "2023-04-26 21:45:00",
+        "exit_time": "2023-04-30 00:45:00",
+        "direction": "LONG",
+        "entry_price": 28670.0,
+        "exit_price": 29124.3,
+        "roi_pct": 1.58,
+        "pnl": 271.21,
+        "balance_after": 8282.64,
+        "close_type": "REV",
+        "margin_used": 1201.71,
+        "highest_roi_pct": 4.22
+      },
+      {
+        "entry_time": "2023-11-02 18:45:00",
+        "exit_time": "2023-11-03 00:45:00",
+        "direction": "LONG",
+        "entry_price": 34844.9,
+        "exit_price": 34512.5,
+        "roi_pct": -0.95,
+        "pnl": -192.68,
+        "balance_after": 8089.96,
+        "close_type": "REV",
+        "margin_used": 1242.4,
+        "highest_roi_pct": 0.57
+      },
+      {
+        "entry_time": "2023-12-19 18:45:00",
+        "exit_time": "2023-12-23 02:15:00",
+        "direction": "LONG",
+        "entry_price": 42248.6,
+        "exit_price": 43600.8,
+        "roi_pct": 3.2,
+        "pnl": 568.02,
+        "balance_after": 8657.98,
+        "close_type": "REV",
+        "margin_used": 1213.49,
+        "highest_roi_pct": 4.93
+      },
+      {
+        "entry_time": "2024-02-13 19:30:00",
+        "exit_time": "2024-02-17 08:45:00",
+        "direction": "LONG",
+        "entry_price": 49227.7,
+        "exit_price": 51764.2,
+        "roi_pct": 5.15,
+        "pnl": 988.16,
+        "balance_after": 9646.14,
+        "close_type": "REV",
+        "margin_used": 1298.7,
+        "highest_roi_pct": 6.94
+      },
+      {
+        "entry_time": "2024-03-11 03:00:00",
+        "exit_time": "2024-03-12 16:45:00",
+        "direction": "LONG",
+        "entry_price": 68624.9,
+        "exit_price": 70571.8,
+        "roi_pct": 2.84,
+        "pnl": 598.38,
+        "balance_after": 10244.52,
+        "close_type": "REV",
+        "margin_used": 1446.92,
+        "highest_roi_pct": 6.03
+      },
+      {
+        "entry_time": "2024-09-04 19:45:00",
+        "exit_time": "2024-09-05 02:45:00",
+        "direction": "LONG",
+        "entry_price": 58029.8,
+        "exit_price": 57673.3,
+        "roi_pct": -0.61,
+        "pnl": -160.05,
+        "balance_after": 10084.47,
+        "close_type": "REV",
+        "margin_used": 1536.68,
+        "highest_roi_pct": 0.55
+      },
+      {
+        "entry_time": "2024-09-17 11:00:00",
+        "exit_time": "2024-09-22 02:30:00",
+        "direction": "LONG",
+        "entry_price": 59089.1,
+        "exit_price": 62883.6,
+        "roi_pct": 6.42,
+        "pnl": 1438.93,
+        "balance_after": 11523.4,
+        "close_type": "REV",
+        "margin_used": 1512.67,
+        "highest_roi_pct": 8.17
+      },
+      {
+        "entry_time": "2024-10-11 13:15:00",
+        "exit_time": "2024-10-21 08:45:00",
+        "direction": "LONG",
+        "entry_price": 61393.2,
+        "exit_price": 68304.3,
+        "roi_pct": 11.26,
+        "pnl": 2897.96,
+        "balance_after": 14421.36,
+        "close_type": "REV",
+        "margin_used": 1728.51,
+        "highest_roi_pct": 13.08
+      },
+      {
+        "entry_time": "2025-06-06 14:15:00",
+        "exit_time": "2025-06-11 22:00:00",
+        "direction": "LONG",
+        "entry_price": 104507.9,
+        "exit_price": 108562.7,
+        "roi_pct": 3.88,
+        "pnl": 1232.99,
+        "balance_after": 15654.36,
+        "close_type": "REV",
+        "margin_used": 2163.2,
+        "highest_roi_pct": 5.76
+      },
+      {
+        "entry_time": "2026-02-15 21:45:00",
+        "exit_time": "2026-02-15 23:30:00",
+        "direction": "LONG",
+        "entry_price": 68809.0,
+        "exit_price": 68648.9,
+        "roi_pct": -0.23,
+        "pnl": -110.13,
+        "balance_after": 15544.23,
+        "close_type": "REV",
+        "margin_used": 2348.15,
+        "highest_roi_pct": 0.29
+      },
+      {
+        "entry_time": "2026-02-28 21:30:00",
+        "exit_time": "2026-03-01 17:45:00",
+        "direction": "LONG",
+        "entry_price": 66805.5,
+        "exit_price": 65956.8,
+        "roi_pct": -1.27,
+        "pnl": -472.3,
+        "balance_after": 15071.93,
+        "close_type": "REV",
+        "margin_used": 2331.63,
+        "highest_roi_pct": 1.84
+      }
+    ],
+    "yearly_balances": {
+      "2020": {
+        "start": 3000.0,
+        "end": 2911.45279646082
+      },
+      "2021": {
+        "start": 2911.45279646082,
+        "end": 3477.625521804308
+      },
+      "2022": {
+        "start": 3477.625521804308,
+        "end": 8011.431915936936
+      },
+      "2023": {
+        "start": 8011.431915936936,
+        "end": 8657.979663414739
+      },
+      "2024": {
+        "start": 8657.979663414739,
+        "end": 14421.36275689734
+      },
+      "2025": {
+        "start": 14421.36275689734,
+        "end": 15654.356199820324
+      },
+      "2026": {
+        "start": 15654.356199820324,
+        "end": 15071.928272919278
+      }
+    },
+    "monthly_summary": {
+      "2020-04": {
+        "trades": 1,
+        "pnl": -60.597517127928036,
+        "start_bal": 3000.0,
+        "end_bal": 2939.402482872072
+      },
+      "2020-05": {
+        "trades": 1,
+        "pnl": -28.709591291184736,
+        "start_bal": 2939.402482872072,
+        "end_bal": 2910.6928915808876
+      },
+      "2020-08": {
+        "trades": 2,
+        "pnl": 0.7599048799324848,
+        "start_bal": 2910.6928915808876,
+        "end_bal": 2911.45279646082
+      },
+      "2021-07": {
+        "trades": 1,
+        "pnl": -42.30498941741584,
+        "start_bal": 2911.45279646082,
+        "end_bal": 2869.147807043404
+      },
+      "2021-08": {
+        "trades": 1,
+        "pnl": 652.6839762966533,
+        "start_bal": 2869.147807043404,
+        "end_bal": 3521.8317833400574
+      },
+      "2021-10": {
+        "trades": 1,
+        "pnl": -46.964809862636834,
+        "start_bal": 3521.8317833400574,
+        "end_bal": 3474.8669734774207
+      },
+      "2021-12": {
+        "trades": 1,
+        "pnl": 2.758548326887392,
+        "start_bal": 3474.8669734774207,
+        "end_bal": 3477.625521804308
+      },
+      "2022-02": {
+        "trades": 1,
+        "pnl": 872.0469495972835,
+        "start_bal": 3477.625521804308,
+        "end_bal": 4349.672471401592
+      },
+      "2022-06": {
+        "trades": 1,
+        "pnl": 1285.5342339441977,
+        "start_bal": 4349.672471401592,
+        "end_bal": 5635.2067053457895
+      },
+      "2022-07": {
+        "trades": 1,
+        "pnl": -22.38282211316341,
+        "start_bal": 5635.2067053457895,
+        "end_bal": 5612.823883232626
+      },
+      "2022-11": {
+        "trades": 2,
+        "pnl": 2419.845451328747,
+        "start_bal": 5612.823883232626,
+        "end_bal": 8032.669334561373
+      },
+      "2022-12": {
+        "trades": 1,
+        "pnl": -21.237418624436536,
+        "start_bal": 8032.669334561373,
+        "end_bal": 8011.431915936936
+      },
+      "2023-04": {
+        "trades": 1,
+        "pnl": 271.2119798820713,
+        "start_bal": 8011.431915936936,
+        "end_bal": 8282.643895819008
+      },
+      "2023-11": {
+        "trades": 1,
+        "pnl": -192.6848286721106,
+        "start_bal": 8282.643895819008,
+        "end_bal": 8089.959067146898
+      },
+      "2023-12": {
+        "trades": 1,
+        "pnl": 568.0205962678406,
+        "start_bal": 8089.959067146898,
+        "end_bal": 8657.979663414739
+      },
+      "2024-02": {
+        "trades": 1,
+        "pnl": 988.1629615177598,
+        "start_bal": 8657.979663414739,
+        "end_bal": 9646.142624932498
+      },
+      "2024-03": {
+        "trades": 1,
+        "pnl": 598.3780069718646,
+        "start_bal": 9646.142624932498,
+        "end_bal": 10244.520631904363
+      },
+      "2024-09": {
+        "trades": 2,
+        "pnl": 1278.8800231989344,
+        "start_bal": 10244.520631904363,
+        "end_bal": 11523.400655103298
+      },
+      "2024-10": {
+        "trades": 1,
+        "pnl": 2897.962101794043,
+        "start_bal": 11523.400655103298,
+        "end_bal": 14421.36275689734
+      },
+      "2025-06": {
+        "trades": 1,
+        "pnl": 1232.993442922983,
+        "start_bal": 14421.36275689734,
+        "end_bal": 15654.356199820324
+      },
+      "2026-02": {
+        "trades": 1,
+        "pnl": -110.13064474758633,
+        "start_bal": 15654.356199820324,
+        "end_bal": 15544.225555072737
+      },
+      "2026-03": {
+        "trades": 1,
+        "pnl": -472.29728215345824,
+        "start_bal": 15544.225555072737,
+        "end_bal": 15071.928272919278
+      }
+    }
+  },
+  "tier2": {
+    "balance": 39415.95,
+    "mdd": 13.07,
+    "total_trades": 34,
+    "trades": [
+      {
+        "entry_time": "2020-02-24 10:15:00",
+        "exit_time": "2020-02-24 11:30:00",
+        "direction": "SHORT",
+        "entry_price": 9741.64,
+        "exit_price": 9784.4,
+        "roi_pct": -0.44,
+        "pnl": -77.84,
+        "balance_after": 2922.16,
+        "close_type": "REV",
+        "margin_used": 1500.0,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2020-05-03 17:45:00",
+        "exit_time": "2020-05-03 18:00:00",
+        "direction": "LONG",
+        "entry_price": 8823.65,
+        "exit_price": 8841.07,
+        "roi_pct": 0.2,
+        "pnl": 17.16,
+        "balance_after": 2939.32,
+        "close_type": "REV",
+        "margin_used": 1461.08,
+        "highest_roi_pct": 0.2
+      },
+      {
+        "entry_time": "2020-05-03 18:45:00",
+        "exit_time": "2020-05-03 19:15:00",
+        "direction": "SHORT",
+        "entry_price": 8854.13,
+        "exit_price": 8878.18,
+        "roi_pct": -0.27,
+        "pnl": -51.68,
+        "balance_after": 2887.64,
+        "close_type": "REV",
+        "margin_used": 1469.66,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2020-05-03 20:00:00",
+        "exit_time": "2020-05-03 20:30:00",
+        "direction": "LONG",
+        "entry_price": 8870.1,
+        "exit_price": 8826.17,
+        "roi_pct": -0.5,
+        "pnl": -83.06,
+        "balance_after": 2804.58,
+        "close_type": "REV",
+        "margin_used": 1443.82,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2020-05-03 21:15:00",
+        "exit_time": "2020-05-03 22:15:00",
+        "direction": "SHORT",
+        "entry_price": 8850.46,
+        "exit_price": 8937.69,
+        "roi_pct": -0.99,
+        "pnl": -149.43,
+        "balance_after": 2655.15,
+        "close_type": "REV",
+        "margin_used": 1402.29,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2020-05-09 13:00:00",
+        "exit_time": "2020-05-09 21:15:00",
+        "direction": "LONG",
+        "entry_price": 9651.6,
+        "exit_price": 9646.72,
+        "roi_pct": -0.05,
+        "pnl": -17.33,
+        "balance_after": 2637.82,
+        "close_type": "REV",
+        "margin_used": 1327.58,
+        "highest_roi_pct": 1.37
+      },
+      {
+        "entry_time": "2020-08-07 19:15:00",
+        "exit_time": "2020-08-08 16:45:00",
+        "direction": "LONG",
+        "entry_price": 11522.32,
+        "exit_price": 11686.14,
+        "roi_pct": 1.42,
+        "pnl": 176.97,
+        "balance_after": 2814.79,
+        "close_type": "REV",
+        "margin_used": 1318.91,
+        "highest_roi_pct": 2.37
+      },
+      {
+        "entry_time": "2020-08-10 11:45:00",
+        "exit_time": "2020-08-10 12:15:00",
+        "direction": "SHORT",
+        "entry_price": 11741.77,
+        "exit_price": 11809.3,
+        "roi_pct": -0.58,
+        "pnl": -92.2,
+        "balance_after": 2722.59,
+        "close_type": "REV",
+        "margin_used": 1407.39,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2020-08-10 13:00:00",
+        "exit_time": "2020-08-11 07:00:00",
+        "direction": "LONG",
+        "entry_price": 11870.15,
+        "exit_price": 11779.76,
+        "roi_pct": -0.76,
+        "pnl": -114.55,
+        "balance_after": 2608.03,
+        "close_type": "REV",
+        "margin_used": 1361.29,
+        "highest_roi_pct": 0.81
+      },
+      {
+        "entry_time": "2020-08-16 14:15:00",
+        "exit_time": "2020-08-17 01:30:00",
+        "direction": "LONG",
+        "entry_price": 11813.59,
+        "exit_price": 11830.0,
+        "roi_pct": 0.14,
+        "pnl": 7.68,
+        "balance_after": 2615.72,
+        "close_type": "REV",
+        "margin_used": 1304.02,
+        "highest_roi_pct": 0.91
+      },
+      {
+        "entry_time": "2020-09-02 09:30:00",
+        "exit_time": "2020-09-04 09:45:00",
+        "direction": "SHORT",
+        "entry_price": 11751.14,
+        "exit_price": 10518.32,
+        "roi_pct": 10.49,
+        "pnl": 1361.62,
+        "balance_after": 3977.33,
+        "close_type": "TSL",
+        "margin_used": 1307.86,
+        "highest_roi_pct": 13.81
+      },
+      {
+        "entry_time": "2021-02-10 22:30:00",
+        "exit_time": "2021-02-11 00:30:00",
+        "direction": "LONG",
+        "entry_price": 45268.39,
+        "exit_price": 44731.18,
+        "roi_pct": -1.19,
+        "pnl": -251.91,
+        "balance_after": 3725.43,
+        "close_type": "REV",
+        "margin_used": 1988.67,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2021-07-05 07:30:00",
+        "exit_time": "2021-07-05 11:15:00",
+        "direction": "LONG",
+        "entry_price": 34148.03,
+        "exit_price": 33733.58,
+        "roi_pct": -1.21,
+        "pnl": -240.98,
+        "balance_after": 3484.45,
+        "close_type": "REV",
+        "margin_used": 1862.71,
+        "highest_roi_pct": 0.93
+      },
+      {
+        "entry_time": "2021-08-05 15:45:00",
+        "exit_time": "2021-08-07 13:45:00",
+        "direction": "LONG",
+        "entry_price": 38723.29,
+        "exit_price": 43168.83,
+        "roi_pct": 11.48,
+        "pnl": 1986.18,
+        "balance_after": 5470.63,
+        "close_type": "TSL",
+        "margin_used": 1742.22,
+        "highest_roi_pct": 14.57
+      },
+      {
+        "entry_time": "2021-10-12 23:15:00",
+        "exit_time": "2021-10-13 05:00:00",
+        "direction": "LONG",
+        "entry_price": 56260.11,
+        "exit_price": 56071.41,
+        "roi_pct": -0.34,
+        "pnl": -113.63,
+        "balance_after": 5357.01,
+        "close_type": "REV",
+        "margin_used": 2735.32,
+        "highest_roi_pct": 0.37
+      },
+      {
+        "entry_time": "2021-12-13 12:45:00",
+        "exit_time": "2021-12-13 13:00:00",
+        "direction": "LONG",
+        "entry_price": 48579.78,
+        "exit_price": 48409.5,
+        "roi_pct": -0.35,
+        "pnl": -115.31,
+        "balance_after": 5241.69,
+        "close_type": "REV",
+        "margin_used": 2678.5,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2022-06-16 02:45:00",
+        "exit_time": "2022-06-18 21:15:00",
+        "direction": "SHORT",
+        "entry_price": 22445.0,
+        "exit_price": 18664.4,
+        "roi_pct": 16.84,
+        "pnl": 4393.54,
+        "balance_after": 9635.24,
+        "close_type": "TSL",
+        "margin_used": 2620.85,
+        "highest_roi_pct": 21.09
+      },
+      {
+        "entry_time": "2022-09-07 23:30:00",
+        "exit_time": "2022-09-08 20:00:00",
+        "direction": "SHORT",
+        "entry_price": 19274.4,
+        "exit_price": 19405.3,
+        "roi_pct": -0.68,
+        "pnl": -365.72,
+        "balance_after": 9269.51,
+        "close_type": "REV",
+        "margin_used": 4817.62,
+        "highest_roi_pct": 1.13
+      },
+      {
+        "entry_time": "2022-11-07 04:15:00",
+        "exit_time": "2022-11-08 17:00:00",
+        "direction": "SHORT",
+        "entry_price": 20860.4,
+        "exit_price": 20093.1,
+        "roi_pct": 3.68,
+        "pnl": 1667.71,
+        "balance_after": 10937.22,
+        "close_type": "REV",
+        "margin_used": 4634.76,
+        "highest_roi_pct": 7.57
+      },
+      {
+        "entry_time": "2022-11-08 20:30:00",
+        "exit_time": "2022-11-10 00:45:00",
+        "direction": "SHORT",
+        "entry_price": 18270.7,
+        "exit_price": 16237.9,
+        "roi_pct": 11.13,
+        "pnl": 6040.63,
+        "balance_after": 16977.85,
+        "close_type": "TSL",
+        "margin_used": 5468.61,
+        "highest_roi_pct": 14.23
+      },
+      {
+        "entry_time": "2022-12-22 21:30:00",
+        "exit_time": "2022-12-23 14:45:00",
+        "direction": "LONG",
+        "entry_price": 16797.4,
+        "exit_price": 16781.0,
+        "roi_pct": -0.1,
+        "pnl": -150.79,
+        "balance_after": 16827.06,
+        "close_type": "REV",
+        "margin_used": 8488.93,
+        "highest_roi_pct": 0.5
+      },
+      {
+        "entry_time": "2022-12-25 19:45:00",
+        "exit_time": "2022-12-25 22:15:00",
+        "direction": "SHORT",
+        "entry_price": 16786.7,
+        "exit_price": 16814.3,
+        "roi_pct": -0.16,
+        "pnl": -205.64,
+        "balance_after": 16621.42,
+        "close_type": "REV",
+        "margin_used": 8413.53,
+        "highest_roi_pct": 0.16
+      },
+      {
+        "entry_time": "2023-02-08 19:30:00",
+        "exit_time": "2023-02-12 15:45:00",
+        "direction": "SHORT",
+        "entry_price": 22849.8,
+        "exit_price": 21931.4,
+        "roi_pct": 4.02,
+        "pnl": 3273.83,
+        "balance_after": 19895.25,
+        "close_type": "REV",
+        "margin_used": 8310.71,
+        "highest_roi_pct": 5.87
+      },
+      {
+        "entry_time": "2023-04-26 22:45:00",
+        "exit_time": "2023-04-30 01:00:00",
+        "direction": "LONG",
+        "entry_price": 28282.2,
+        "exit_price": 29135.4,
+        "roi_pct": 3.02,
+        "pnl": 2921.36,
+        "balance_after": 22816.61,
+        "close_type": "REV",
+        "margin_used": 9947.62,
+        "highest_roi_pct": 5.65
+      },
+      {
+        "entry_time": "2023-09-18 20:45:00",
+        "exit_time": "2023-09-18 23:45:00",
+        "direction": "LONG",
+        "entry_price": 26757.5,
+        "exit_price": 26749.9,
+        "roi_pct": -0.03,
+        "pnl": -123.67,
+        "balance_after": 22692.94,
+        "close_type": "REV",
+        "margin_used": 11408.3,
+        "highest_roi_pct": 0.38
+      },
+      {
+        "entry_time": "2023-11-02 19:00:00",
+        "exit_time": "2023-11-02 23:15:00",
+        "direction": "LONG",
+        "entry_price": 34854.9,
+        "exit_price": 34844.3,
+        "roi_pct": -0.03,
+        "pnl": -125.28,
+        "balance_after": 22567.66,
+        "close_type": "REV",
+        "margin_used": 11346.47,
+        "highest_roi_pct": 0.55
+      },
+      {
+        "entry_time": "2023-12-19 19:30:00",
+        "exit_time": "2023-12-23 02:15:00",
+        "direction": "LONG",
+        "entry_price": 42302.2,
+        "exit_price": 43600.8,
+        "roi_pct": 3.07,
+        "pnl": 3373.66,
+        "balance_after": 25941.32,
+        "close_type": "REV",
+        "margin_used": 11283.83,
+        "highest_roi_pct": 4.79
+      },
+      {
+        "entry_time": "2024-02-13 19:15:00",
+        "exit_time": "2024-02-17 08:45:00",
+        "direction": "LONG",
+        "entry_price": 49170.7,
+        "exit_price": 51764.2,
+        "roi_pct": 5.27,
+        "pnl": 6737.59,
+        "balance_after": 32678.9,
+        "close_type": "REV",
+        "margin_used": 12970.66,
+        "highest_roi_pct": 7.06
+      },
+      {
+        "entry_time": "2024-03-11 03:45:00",
+        "exit_time": "2024-03-12 17:00:00",
+        "direction": "LONG",
+        "entry_price": 68657.4,
+        "exit_price": 69894.1,
+        "roi_pct": 1.8,
+        "pnl": 2812.45,
+        "balance_after": 35491.35,
+        "close_type": "REV",
+        "margin_used": 16339.45,
+        "highest_roi_pct": 5.98
+      },
+      {
+        "entry_time": "2024-09-04 19:30:00",
+        "exit_time": "2024-09-04 19:45:00",
+        "direction": "SHORT",
+        "entry_price": 57948.9,
+        "exit_price": 58029.8,
+        "roi_pct": -0.14,
+        "pnl": -389.71,
+        "balance_after": 35101.65,
+        "close_type": "REV",
+        "margin_used": 17745.68,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2025-06-06 15:15:00",
+        "exit_time": "2025-06-11 18:45:00",
+        "direction": "LONG",
+        "entry_price": 104763.7,
+        "exit_price": 108749.8,
+        "roi_pct": 3.8,
+        "pnl": 6537.42,
+        "balance_after": 41639.06,
+        "close_type": "REV",
+        "margin_used": 17550.82,
+        "highest_roi_pct": 5.5
+      },
+      {
+        "entry_time": "2026-02-15 20:00:00",
+        "exit_time": "2026-02-15 21:30:00",
+        "direction": "SHORT",
+        "entry_price": 68393.3,
+        "exit_price": 68703.0,
+        "roi_pct": -0.45,
+        "pnl": -1109.31,
+        "balance_after": 40529.75,
+        "close_type": "REV",
+        "margin_used": 20819.53,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2026-02-15 22:15:00",
+        "exit_time": "2026-02-15 23:45:00",
+        "direction": "LONG",
+        "entry_price": 68974.1,
+        "exit_price": 68796.9,
+        "roi_pct": -0.26,
+        "pnl": -682.74,
+        "balance_after": 39847.01,
+        "close_type": "REV",
+        "margin_used": 20264.88,
+        "highest_roi_pct": 0.05
+      },
+      {
+        "entry_time": "2026-02-16 00:30:00",
+        "exit_time": "2026-02-16 00:45:00",
+        "direction": "SHORT",
+        "entry_price": 68716.7,
+        "exit_price": 68810.4,
+        "roi_pct": -0.14,
+        "pnl": -431.06,
+        "balance_after": 39415.95,
+        "close_type": "REV",
+        "margin_used": 19923.51,
+        "highest_roi_pct": 0.0
+      }
+    ],
+    "yearly_balances": {
+      "2020": {
+        "start": 3000.0,
+        "end": 3977.3347804857594
+      },
+      "2021": {
+        "start": 3977.3347804857594,
+        "end": 5241.6924390981485
+      },
+      "2022": {
+        "start": 5241.6924390981485,
+        "end": 16621.41904536346
+      },
+      "2023": {
+        "start": 16621.41904536346,
+        "end": 25941.316760036312
+      },
+      "2024": {
+        "start": 25941.316760036312,
+        "end": 35101.645878889416
+      },
+      "2025": {
+        "start": 35101.645878889416,
+        "end": 41639.06141495542
+      },
+      "2026": {
+        "start": 41639.06141495542,
+        "end": 39415.95192201988
+      }
+    },
+    "monthly_summary": {
+      "2020-02": {
+        "trades": 1,
+        "pnl": -77.84106988145767,
+        "start_bal": 3000.0,
+        "end_bal": 2922.1589301185422
+      },
+      "2020-05": {
+        "trades": 5,
+        "pnl": -284.3382243350996,
+        "start_bal": 2922.1589301185422,
+        "end_bal": 2637.8207057834425
+      },
+      "2020-08": {
+        "trades": 4,
+        "pnl": -22.105349373440234,
+        "start_bal": 2637.8207057834425,
+        "end_bal": 2615.715356410002
+      },
+      "2020-09": {
+        "trades": 1,
+        "pnl": 1361.6194240757573,
+        "start_bal": 2615.715356410002,
+        "end_bal": 3977.3347804857594
+      },
+      "2021-02": {
+        "trades": 1,
+        "pnl": -251.90889835353394,
+        "start_bal": 3977.3347804857594,
+        "end_bal": 3725.4258821322255
+      },
+      "2021-07": {
+        "trades": 1,
+        "pnl": -240.9766420900931,
+        "start_bal": 3725.4258821322255,
+        "end_bal": 3484.4492400421323
+      },
+      "2021-08": {
+        "trades": 1,
+        "pnl": 1986.183896544813,
+        "start_bal": 3484.4492400421323,
+        "end_bal": 5470.6331365869455
+      },
+      "2021-10": {
+        "trades": 1,
+        "pnl": -113.62679618837944,
+        "start_bal": 5470.6331365869455,
+        "end_bal": 5357.006340398566
+      },
+      "2021-12": {
+        "trades": 1,
+        "pnl": -115.31390130041713,
+        "start_bal": 5357.006340398566,
+        "end_bal": 5241.6924390981485
+      },
+      "2022-06": {
+        "trades": 1,
+        "pnl": 4393.5447996921375,
+        "start_bal": 5241.6924390981485,
+        "end_bal": 9635.237238790287
+      },
+      "2022-09": {
+        "trades": 1,
+        "pnl": -365.72429955430493,
+        "start_bal": 9635.237238790287,
+        "end_bal": 9269.512939235981
+      },
+      "2022-11": {
+        "trades": 2,
+        "pnl": 7708.338442401562,
+        "start_bal": 9269.512939235981,
+        "end_bal": 16977.851381637545
+      },
+      "2022-12": {
+        "trades": 2,
+        "pnl": -356.4323362740885,
+        "start_bal": 16977.851381637545,
+        "end_bal": 16621.41904536346
+      },
+      "2023-02": {
+        "trades": 1,
+        "pnl": 3273.8304865993505,
+        "start_bal": 16621.41904536346,
+        "end_bal": 19895.249531962807
+      },
+      "2023-04": {
+        "trades": 1,
+        "pnl": 2921.3572069394136,
+        "start_bal": 19895.249531962807,
+        "end_bal": 22816.60673890222
+      },
+      "2023-09": {
+        "trades": 1,
+        "pnl": -123.66971784893293,
+        "start_bal": 22816.60673890222,
+        "end_bal": 22692.937021053287
+      },
+      "2023-11": {
+        "trades": 1,
+        "pnl": -125.27839312165868,
+        "start_bal": 22692.937021053287,
+        "end_bal": 22567.65862793163
+      },
+      "2023-12": {
+        "trades": 1,
+        "pnl": 3373.6581321046842,
+        "start_bal": 22567.65862793163,
+        "end_bal": 25941.316760036312
+      },
+      "2024-02": {
+        "trades": 1,
+        "pnl": 6737.585884881038,
+        "start_bal": 25941.316760036312,
+        "end_bal": 32678.90264491735
+      },
+      "2024-03": {
+        "trades": 1,
+        "pnl": 2812.4484839658326,
+        "start_bal": 32678.90264491735,
+        "end_bal": 35491.35112888318
+      },
+      "2024-09": {
+        "trades": 1,
+        "pnl": -389.7052499937645,
+        "start_bal": 35491.35112888318,
+        "end_bal": 35101.645878889416
+      },
+      "2025-06": {
+        "trades": 1,
+        "pnl": 6537.415536066002,
+        "start_bal": 35101.645878889416,
+        "end_bal": 41639.06141495542
+      },
+      "2026-02": {
+        "trades": 3,
+        "pnl": -2223.1094929355404,
+        "start_bal": 41639.06141495542,
+        "end_bal": 39415.95192201988
+      }
+    }
+  },
+  "tier3": {
+    "balance": 44539.3,
+    "mdd": 15.16,
+    "total_trades": 49,
+    "trades": [
+      {
+        "entry_time": "2020-05-09 11:15:00",
+        "exit_time": "2020-05-09 12:00:00",
+        "direction": "SHORT",
+        "entry_price": 9562.22,
+        "exit_price": 9677.09,
+        "roi_pct": -1.2,
+        "pnl": -153.75,
+        "balance_after": 2846.25,
+        "close_type": "REV",
+        "margin_used": 1200.0,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2020-05-09 12:00:00",
+        "exit_time": "2020-05-09 20:45:00",
+        "direction": "LONG",
+        "entry_price": 9677.09,
+        "exit_price": 9666.01,
+        "roi_pct": -0.11,
+        "pnl": -22.14,
+        "balance_after": 2824.1,
+        "close_type": "REV",
+        "margin_used": 1138.5,
+        "highest_roi_pct": 1.1
+      },
+      {
+        "entry_time": "2020-06-11 12:45:00",
+        "exit_time": "2020-06-14 11:15:00",
+        "direction": "SHORT",
+        "entry_price": 9728.11,
+        "exit_price": 9431.99,
+        "roi_pct": 3.04,
+        "pnl": 334.82,
+        "balance_after": 3158.92,
+        "close_type": "REV",
+        "margin_used": 1129.64,
+        "highest_roi_pct": 6.63
+      },
+      {
+        "entry_time": "2020-07-20 14:15:00",
+        "exit_time": "2020-07-20 19:30:00",
+        "direction": "LONG",
+        "entry_price": 9171.99,
+        "exit_price": 9156.92,
+        "roi_pct": -0.16,
+        "pnl": -30.87,
+        "balance_after": 3128.05,
+        "close_type": "REV",
+        "margin_used": 1263.57,
+        "highest_roi_pct": 0.22
+      },
+      {
+        "entry_time": "2020-08-07 16:30:00",
+        "exit_time": "2020-08-08 09:30:00",
+        "direction": "SHORT",
+        "entry_price": 11607.97,
+        "exit_price": 11705.91,
+        "roi_pct": -0.84,
+        "pnl": -115.58,
+        "balance_after": 3012.47,
+        "close_type": "REV",
+        "margin_used": 1251.22,
+        "highest_roi_pct": 1.47
+      },
+      {
+        "entry_time": "2020-08-16 12:45:00",
+        "exit_time": "2020-08-17 01:15:00",
+        "direction": "LONG",
+        "entry_price": 11782.44,
+        "exit_price": 11821.65,
+        "roi_pct": 0.33,
+        "pnl": 30.46,
+        "balance_after": 3042.93,
+        "close_type": "REV",
+        "margin_used": 1204.99,
+        "highest_roi_pct": 1.18
+      },
+      {
+        "entry_time": "2021-01-26 01:45:00",
+        "exit_time": "2021-01-26 02:00:00",
+        "direction": "LONG",
+        "entry_price": 32763.5,
+        "exit_price": 32586.12,
+        "roi_pct": -0.54,
+        "pnl": -75.63,
+        "balance_after": 2967.3,
+        "close_type": "REV",
+        "margin_used": 1217.17,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2021-01-26 02:00:00",
+        "exit_time": "2021-01-26 22:45:00",
+        "direction": "SHORT",
+        "entry_price": 32586.12,
+        "exit_price": 32782.26,
+        "roi_pct": -0.6,
+        "pnl": -80.94,
+        "balance_after": 2886.36,
+        "close_type": "REV",
+        "margin_used": 1186.92,
+        "highest_roi_pct": 4.72
+      },
+      {
+        "entry_time": "2021-07-05 05:45:00",
+        "exit_time": "2021-07-05 07:00:00",
+        "direction": "LONG",
+        "entry_price": 34337.84,
+        "exit_price": 34119.98,
+        "roi_pct": -0.63,
+        "pnl": -82.49,
+        "balance_after": 2803.87,
+        "close_type": "REV",
+        "margin_used": 1154.54,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2021-07-05 07:00:00",
+        "exit_time": "2021-07-05 09:00:00",
+        "direction": "SHORT",
+        "entry_price": 34119.98,
+        "exit_price": 34382.42,
+        "roi_pct": -0.77,
+        "pnl": -95.24,
+        "balance_after": 2708.64,
+        "close_type": "REV",
+        "margin_used": 1121.55,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2021-07-27 03:00:00",
+        "exit_time": "2021-07-27 03:15:00",
+        "direction": "SHORT",
+        "entry_price": 36627.51,
+        "exit_price": 36694.74,
+        "roi_pct": -0.18,
+        "pnl": -28.55,
+        "balance_after": 2680.08,
+        "close_type": "REV",
+        "margin_used": 1083.45,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2021-07-27 03:15:00",
+        "exit_time": "2021-07-30 08:30:00",
+        "direction": "LONG",
+        "entry_price": 36694.74,
+        "exit_price": 38965.87,
+        "roi_pct": 6.19,
+        "pnl": 654.93,
+        "balance_after": 3335.01,
+        "close_type": "REV",
+        "margin_used": 1072.03,
+        "highest_roi_pct": 11.0
+      },
+      {
+        "entry_time": "2021-08-05 14:45:00",
+        "exit_time": "2021-08-09 00:30:00",
+        "direction": "LONG",
+        "entry_price": 38990.9,
+        "exit_price": 43196.8,
+        "roi_pct": 10.79,
+        "pnl": 1428.3,
+        "balance_after": 4763.32,
+        "close_type": "TSL",
+        "margin_used": 1334.01,
+        "highest_roi_pct": 15.89
+      },
+      {
+        "entry_time": "2021-10-12 22:15:00",
+        "exit_time": "2021-10-12 23:45:00",
+        "direction": "LONG",
+        "entry_price": 56217.77,
+        "exit_price": 56011.84,
+        "roi_pct": -0.37,
+        "pnl": -85.04,
+        "balance_after": 4678.28,
+        "close_type": "REV",
+        "margin_used": 1905.33,
+        "highest_roi_pct": 0.32
+      },
+      {
+        "entry_time": "2021-11-06 23:45:00",
+        "exit_time": "2021-11-07 00:30:00",
+        "direction": "LONG",
+        "entry_price": 61511.3,
+        "exit_price": 61461.69,
+        "roi_pct": -0.08,
+        "pnl": -30.06,
+        "balance_after": 4648.22,
+        "close_type": "REV",
+        "margin_used": 1871.31,
+        "highest_roi_pct": 0.09
+      },
+      {
+        "entry_time": "2021-11-07 00:45:00",
+        "exit_time": "2021-11-10 20:00:00",
+        "direction": "LONG",
+        "entry_price": 61999.18,
+        "exit_price": 66571.89,
+        "roi_pct": 7.38,
+        "pnl": 1356.43,
+        "balance_after": 6004.65,
+        "close_type": "REV",
+        "margin_used": 1859.29,
+        "highest_roi_pct": 10.98
+      },
+      {
+        "entry_time": "2022-03-30 02:00:00",
+        "exit_time": "2022-03-30 14:00:00",
+        "direction": "LONG",
+        "entry_price": 47063.1,
+        "exit_price": 47032.9,
+        "roi_pct": -0.06,
+        "pnl": -34.63,
+        "balance_after": 5970.02,
+        "close_type": "REV",
+        "margin_used": 2401.86,
+        "highest_roi_pct": 1.0
+      },
+      {
+        "entry_time": "2022-06-16 01:00:00",
+        "exit_time": "2022-06-16 01:30:00",
+        "direction": "LONG",
+        "entry_price": 22935.9,
+        "exit_price": 22526.4,
+        "roi_pct": -1.79,
+        "pnl": -445.46,
+        "balance_after": 5524.56,
+        "close_type": "REV",
+        "margin_used": 2388.01,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2022-06-16 01:30:00",
+        "exit_time": "2022-06-18 22:15:00",
+        "direction": "SHORT",
+        "entry_price": 22526.4,
+        "exit_price": 19359.9,
+        "roi_pct": 14.06,
+        "pnl": 3088.64,
+        "balance_after": 8613.19,
+        "close_type": "TSL",
+        "margin_used": 2209.82,
+        "highest_roi_pct": 21.38
+      },
+      {
+        "entry_time": "2022-07-03 21:00:00",
+        "exit_time": "2022-07-04 09:45:00",
+        "direction": "SHORT",
+        "entry_price": 19343.8,
+        "exit_price": 19358.1,
+        "roi_pct": -0.07,
+        "pnl": -53.03,
+        "balance_after": 8560.16,
+        "close_type": "REV",
+        "margin_used": 3445.28,
+        "highest_roi_pct": 1.44
+      },
+      {
+        "entry_time": "2022-07-31 00:30:00",
+        "exit_time": "2022-07-31 03:30:00",
+        "direction": "LONG",
+        "entry_price": 23716.0,
+        "exit_price": 23717.2,
+        "roi_pct": 0.01,
+        "pnl": -25.66,
+        "balance_after": 8534.5,
+        "close_type": "REV",
+        "margin_used": 3424.07,
+        "highest_roi_pct": 0.4
+      },
+      {
+        "entry_time": "2022-11-07 02:00:00",
+        "exit_time": "2022-11-07 02:30:00",
+        "direction": "LONG",
+        "entry_price": 21050.0,
+        "exit_price": 20984.6,
+        "roi_pct": -0.31,
+        "pnl": -133.37,
+        "balance_after": 8401.13,
+        "close_type": "REV",
+        "margin_used": 3413.8,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2022-11-07 02:30:00",
+        "exit_time": "2022-11-08 16:30:00",
+        "direction": "SHORT",
+        "entry_price": 20984.6,
+        "exit_price": 20561.4,
+        "roi_pct": 2.02,
+        "pnl": 650.82,
+        "balance_after": 9051.95,
+        "close_type": "TSL",
+        "margin_used": 3360.45,
+        "highest_roi_pct": 8.12
+      },
+      {
+        "entry_time": "2022-11-08 17:00:00",
+        "exit_time": "2022-11-08 21:45:00",
+        "direction": "SHORT",
+        "entry_price": 20093.1,
+        "exit_price": 18691.7,
+        "roi_pct": 6.97,
+        "pnl": 2496.36,
+        "balance_after": 11548.31,
+        "close_type": "TSL",
+        "margin_used": 3620.78,
+        "highest_roi_pct": 12.01
+      },
+      {
+        "entry_time": "2022-12-22 20:15:00",
+        "exit_time": "2022-12-23 14:15:00",
+        "direction": "LONG",
+        "entry_price": 16781.0,
+        "exit_price": 16794.3,
+        "roi_pct": 0.08,
+        "pnl": -0.34,
+        "balance_after": 11547.97,
+        "close_type": "REV",
+        "margin_used": 4619.33,
+        "highest_roi_pct": 0.6
+      },
+      {
+        "entry_time": "2023-02-08 18:00:00",
+        "exit_time": "2023-02-08 18:15:00",
+        "direction": "LONG",
+        "entry_price": 22981.8,
+        "exit_price": 22936.4,
+        "roi_pct": -0.2,
+        "pnl": -128.2,
+        "balance_after": 11419.77,
+        "close_type": "REV",
+        "margin_used": 4619.19,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2023-02-08 18:15:00",
+        "exit_time": "2023-02-12 16:00:00",
+        "direction": "SHORT",
+        "entry_price": 22936.4,
+        "exit_price": 21937.1,
+        "roi_pct": 4.36,
+        "pnl": 1953.62,
+        "balance_after": 13373.38,
+        "close_type": "REV",
+        "margin_used": 4567.91,
+        "highest_roi_pct": 6.23
+      },
+      {
+        "entry_time": "2023-02-23 04:15:00",
+        "exit_time": "2023-02-23 04:30:00",
+        "direction": "SHORT",
+        "entry_price": 24438.4,
+        "exit_price": 24462.4,
+        "roi_pct": -0.1,
+        "pnl": -95.33,
+        "balance_after": 13278.05,
+        "close_type": "REV",
+        "margin_used": 5349.35,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2023-02-23 04:30:00",
+        "exit_time": "2023-02-23 05:30:00",
+        "direction": "LONG",
+        "entry_price": 24462.4,
+        "exit_price": 24380.9,
+        "roi_pct": -0.33,
+        "pnl": -219.44,
+        "balance_after": 13058.61,
+        "close_type": "REV",
+        "margin_used": 5311.22,
+        "highest_roi_pct": 0.2
+      },
+      {
+        "entry_time": "2023-02-23 05:30:00",
+        "exit_time": "2023-02-26 18:30:00",
+        "direction": "SHORT",
+        "entry_price": 24380.9,
+        "exit_price": 23427.8,
+        "roi_pct": 3.91,
+        "pnl": 2000.17,
+        "balance_after": 15058.78,
+        "close_type": "REV",
+        "margin_used": 5223.44,
+        "highest_roi_pct": 6.17
+      },
+      {
+        "entry_time": "2023-03-26 14:30:00",
+        "exit_time": "2023-03-26 18:00:00",
+        "direction": "SHORT",
+        "entry_price": 27797.3,
+        "exit_price": 27863.9,
+        "roi_pct": -0.24,
+        "pnl": -192.51,
+        "balance_after": 14866.27,
+        "close_type": "REV",
+        "margin_used": 6023.51,
+        "highest_roi_pct": 0.39
+      },
+      {
+        "entry_time": "2023-04-26 20:45:00",
+        "exit_time": "2023-04-30 00:45:00",
+        "direction": "LONG",
+        "entry_price": 28405.3,
+        "exit_price": 29124.3,
+        "roi_pct": 2.53,
+        "pnl": 1457.62,
+        "balance_after": 16323.89,
+        "close_type": "REV",
+        "margin_used": 5946.51,
+        "highest_roi_pct": 5.19
+      },
+      {
+        "entry_time": "2023-06-11 22:15:00",
+        "exit_time": "2023-06-12 09:00:00",
+        "direction": "SHORT",
+        "entry_price": 25978.5,
+        "exit_price": 26006.7,
+        "roi_pct": -0.11,
+        "pnl": -123.12,
+        "balance_after": 16200.77,
+        "close_type": "REV",
+        "margin_used": 6529.56,
+        "highest_roi_pct": 0.99
+      },
+      {
+        "entry_time": "2023-09-18 19:30:00",
+        "exit_time": "2023-09-18 20:30:00",
+        "direction": "LONG",
+        "entry_price": 26889.0,
+        "exit_price": 26765.4,
+        "roi_pct": -0.46,
+        "pnl": -349.72,
+        "balance_after": 15851.05,
+        "close_type": "REV",
+        "margin_used": 6480.31,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2023-09-27 14:30:00",
+        "exit_time": "2023-09-27 22:15:00",
+        "direction": "SHORT",
+        "entry_price": 26234.5,
+        "exit_price": 26309.1,
+        "roi_pct": -0.28,
+        "pnl": -231.02,
+        "balance_after": 15620.03,
+        "close_type": "REV",
+        "margin_used": 6340.42,
+        "highest_roi_pct": 0.25
+      },
+      {
+        "entry_time": "2023-11-02 18:00:00",
+        "exit_time": "2023-11-02 22:45:00",
+        "direction": "LONG",
+        "entry_price": 34827.0,
+        "exit_price": 34786.3,
+        "roi_pct": -0.12,
+        "pnl": -123.0,
+        "balance_after": 15497.03,
+        "close_type": "REV",
+        "margin_used": 6248.01,
+        "highest_roi_pct": 0.63
+      },
+      {
+        "entry_time": "2023-12-19 18:15:00",
+        "exit_time": "2023-12-23 02:00:00",
+        "direction": "LONG",
+        "entry_price": 42186.3,
+        "exit_price": 43650.3,
+        "roi_pct": 3.47,
+        "pnl": 2101.6,
+        "balance_after": 17598.63,
+        "close_type": "REV",
+        "margin_used": 6198.81,
+        "highest_roi_pct": 5.08
+      },
+      {
+        "entry_time": "2024-02-13 18:00:00",
+        "exit_time": "2024-02-17 08:30:00",
+        "direction": "LONG",
+        "entry_price": 48988.9,
+        "exit_price": 51804.0,
+        "roi_pct": 5.75,
+        "pnl": 3988.84,
+        "balance_after": 21587.47,
+        "close_type": "REV",
+        "margin_used": 7039.45,
+        "highest_roi_pct": 7.46
+      },
+      {
+        "entry_time": "2024-03-11 02:00:00",
+        "exit_time": "2024-03-12 16:15:00",
+        "direction": "LONG",
+        "entry_price": 68590.9,
+        "exit_price": 70667.1,
+        "roi_pct": 3.03,
+        "pnl": 2544.67,
+        "balance_after": 24132.14,
+        "close_type": "REV",
+        "margin_used": 8634.99,
+        "highest_roi_pct": 6.08
+      },
+      {
+        "entry_time": "2024-04-09 09:00:00",
+        "exit_time": "2024-04-09 10:00:00",
+        "direction": "LONG",
+        "entry_price": 70809.2,
+        "exit_price": 70410.9,
+        "roi_pct": -0.56,
+        "pnl": -620.19,
+        "balance_after": 23511.95,
+        "close_type": "REV",
+        "margin_used": 9652.86,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2024-09-17 09:45:00",
+        "exit_time": "2024-09-22 02:00:00",
+        "direction": "LONG",
+        "entry_price": 58930.8,
+        "exit_price": 62842.0,
+        "roi_pct": 6.64,
+        "pnl": 6166.65,
+        "balance_after": 29678.6,
+        "close_type": "REV",
+        "margin_used": 9404.78,
+        "highest_roi_pct": 8.46
+      },
+      {
+        "entry_time": "2024-10-11 13:00:00",
+        "exit_time": "2024-10-21 08:45:00",
+        "direction": "LONG",
+        "entry_price": 61267.8,
+        "exit_price": 68304.3,
+        "roi_pct": 11.48,
+        "pnl": 13539.17,
+        "balance_after": 43217.77,
+        "close_type": "REV",
+        "margin_used": 11871.44,
+        "highest_roi_pct": 13.31
+      },
+      {
+        "entry_time": "2025-03-11 12:00:00",
+        "exit_time": "2025-03-11 12:15:00",
+        "direction": "SHORT",
+        "entry_price": 81302.9,
+        "exit_price": 81679.2,
+        "roi_pct": -0.46,
+        "pnl": -938.41,
+        "balance_after": 42279.36,
+        "close_type": "REV",
+        "margin_used": 17287.11,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2025-06-06 13:30:00",
+        "exit_time": "2025-06-11 18:15:00",
+        "direction": "LONG",
+        "entry_price": 104308.8,
+        "exit_price": 108488.7,
+        "roi_pct": 4.01,
+        "pnl": 6641.64,
+        "balance_after": 48921.01,
+        "close_type": "REV",
+        "margin_used": 16911.75,
+        "highest_roi_pct": 5.96
+      },
+      {
+        "entry_time": "2025-08-27 00:00:00",
+        "exit_time": "2025-08-27 13:30:00",
+        "direction": "SHORT",
+        "entry_price": 111655.0,
+        "exit_price": 111509.4,
+        "roi_pct": 0.13,
+        "pnl": 98.63,
+        "balance_after": 49019.63,
+        "close_type": "REV",
+        "margin_used": 19568.4,
+        "highest_roi_pct": 1.03
+      },
+      {
+        "entry_time": "2026-02-15 19:30:00",
+        "exit_time": "2026-02-15 19:45:00",
+        "direction": "LONG",
+        "entry_price": 68216.9,
+        "exit_price": 68263.6,
+        "roi_pct": 0.07,
+        "pnl": -22.63,
+        "balance_after": 48997.0,
+        "close_type": "REV",
+        "margin_used": 19607.85,
+        "highest_roi_pct": 0.07
+      },
+      {
+        "entry_time": "2026-02-15 19:45:00",
+        "exit_time": "2026-02-15 21:00:00",
+        "direction": "SHORT",
+        "entry_price": 68263.6,
+        "exit_price": 68706.0,
+        "roi_pct": -0.65,
+        "pnl": -1426.94,
+        "balance_after": 47570.06,
+        "close_type": "REV",
+        "margin_used": 19598.8,
+        "highest_roi_pct": 0.0
+      },
+      {
+        "entry_time": "2026-02-15 21:00:00",
+        "exit_time": "2026-02-15 23:00:00",
+        "direction": "LONG",
+        "entry_price": 68706.0,
+        "exit_price": 68455.7,
+        "roi_pct": -0.36,
+        "pnl": -845.43,
+        "balance_after": 46724.63,
+        "close_type": "REV",
+        "margin_used": 19028.02,
+        "highest_roi_pct": 0.44
+      },
+      {
+        "entry_time": "2026-02-28 20:15:00",
+        "exit_time": "2026-03-01 17:15:00",
+        "direction": "LONG",
+        "entry_price": 66723.9,
+        "exit_price": 65997.1,
+        "roi_pct": -1.09,
+        "pnl": -2185.34,
+        "balance_after": 44539.3,
+        "close_type": "REV",
+        "margin_used": 18689.85,
+        "highest_roi_pct": 1.97
+      }
+    ],
+    "yearly_balances": {
+      "2020": {
+        "start": 3000.0,
+        "end": 3042.934368129389
+      },
+      "2021": {
+        "start": 3042.934368129389,
+        "end": 6004.6481004374855
+      },
+      "2022": {
+        "start": 6004.6481004374855,
+        "end": 11547.970012271813
+      },
+      "2023": {
+        "start": 11547.970012271813,
+        "end": 17598.630616127622
+      },
+      "2024": {
+        "start": 17598.630616127622,
+        "end": 43217.772029652326
+      },
+      "2025": {
+        "start": 43217.772029652326,
+        "end": 49019.63353701146
+      },
+      "2026": {
+        "start": 49019.63353701146,
+        "end": 44539.29548130953
+      }
+    },
+    "monthly_summary": {
+      "2020-05": {
+        "trades": 2,
+        "pnl": -175.89828146535902,
+        "start_bal": 3000.0,
+        "end_bal": 2824.101718534641
+      },
+      "2020-06": {
+        "trades": 1,
+        "pnl": 334.8212399560469,
+        "start_bal": 2824.101718534641,
+        "end_bal": 3158.922958490688
+      },
+      "2020-07": {
+        "trades": 1,
+        "pnl": -30.869574351167564,
+        "start_bal": 3158.922958490688,
+        "end_bal": 3128.0533841395204
+      },
+      "2020-08": {
+        "trades": 2,
+        "pnl": -85.11901601013135,
+        "start_bal": 3128.0533841395204,
+        "end_bal": 3042.934368129389
+      },
+      "2021-01": {
+        "trades": 2,
+        "pnl": -156.57216449669323,
+        "start_bal": 3042.934368129389,
+        "end_bal": 2886.3622036326956
+      },
+      "2021-07": {
+        "trades": 4,
+        "pnl": 448.65118209162733,
+        "start_bal": 2886.3622036326956,
+        "end_bal": 3335.0133857243227
+      },
+      "2021-08": {
+        "trades": 1,
+        "pnl": 1428.3029794419501,
+        "start_bal": 3335.0133857243227,
+        "end_bal": 4763.316365166273
+      },
+      "2021-10": {
+        "trades": 1,
+        "pnl": -85.0361839796929,
+        "start_bal": 4763.316365166273,
+        "end_bal": 4678.280181186579
+      },
+      "2021-11": {
+        "trades": 2,
+        "pnl": 1326.367919250906,
+        "start_bal": 4678.280181186579,
+        "end_bal": 6004.6481004374855
+      },
+      "2022-03": {
+        "trades": 1,
+        "pnl": -34.62740498146141,
+        "start_bal": 6004.6481004374855,
+        "end_bal": 5970.020695456024
+      },
+      "2022-06": {
+        "trades": 2,
+        "pnl": 2643.173526724787,
+        "start_bal": 5970.020695456024,
+        "end_bal": 8613.194222180811
+      },
+      "2022-07": {
+        "trades": 2,
+        "pnl": -78.69159373157842,
+        "start_bal": 8613.194222180811,
+        "end_bal": 8534.502628449232
+      },
+      "2022-11": {
+        "trades": 3,
+        "pnl": 3013.810922236532,
+        "start_bal": 8534.502628449232,
+        "end_bal": 11548.313550685765
+      },
+      "2022-12": {
+        "trades": 1,
+        "pnl": -0.34353841395243734,
+        "start_bal": 11548.313550685765,
+        "end_bal": 11547.970012271813
+      },
+      "2023-02": {
+        "trades": 5,
+        "pnl": 3510.807463155079,
+        "start_bal": 11547.970012271813,
+        "end_bal": 15058.77747542689
+      },
+      "2023-03": {
+        "trades": 1,
+        "pnl": -192.50636053970865,
+        "start_bal": 15058.77747542689,
+        "end_bal": 14866.271114887182
+      },
+      "2023-04": {
+        "trades": 1,
+        "pnl": 1457.6187146601685,
+        "start_bal": 14866.271114887182,
+        "end_bal": 16323.88982954735
+      },
+      "2023-06": {
+        "trades": 1,
+        "pnl": -123.11562726758882,
+        "start_bal": 16323.88982954735,
+        "end_bal": 16200.774202279761
+      },
+      "2023-09": {
+        "trades": 2,
+        "pnl": -580.7398274378606,
+        "start_bal": 16200.774202279761,
+        "end_bal": 15620.0343748419
+      },
+      "2023-11": {
+        "trades": 1,
+        "pnl": -123.00049373119876,
+        "start_bal": 15620.0343748419,
+        "end_bal": 15497.033881110701
+      },
+      "2023-12": {
+        "trades": 1,
+        "pnl": 2101.596735016923,
+        "start_bal": 15497.033881110701,
+        "end_bal": 17598.630616127622
+      },
+      "2024-02": {
+        "trades": 1,
+        "pnl": 3988.837879858377,
+        "start_bal": 17598.630616127622,
+        "end_bal": 21587.468495986
+      },
+      "2024-03": {
+        "trades": 1,
+        "pnl": 2544.6721927881,
+        "start_bal": 21587.468495986,
+        "end_bal": 24132.1406887741
+      },
+      "2024-04": {
+        "trades": 1,
+        "pnl": -620.1936300653831,
+        "start_bal": 24132.1406887741,
+        "end_bal": 23511.947058708716
+      },
+      "2024-09": {
+        "trades": 1,
+        "pnl": 6166.654113383126,
+        "start_bal": 23511.947058708716,
+        "end_bal": 29678.601172091843
+      },
+      "2024-10": {
+        "trades": 1,
+        "pnl": 13539.170857560483,
+        "start_bal": 29678.601172091843,
+        "end_bal": 43217.772029652326
+      },
+      "2025-03": {
+        "trades": 1,
+        "pnl": -938.4084342771534,
+        "start_bal": 43217.772029652326,
+        "end_bal": 42279.36359537517
+      },
+      "2025-06": {
+        "trades": 1,
+        "pnl": 6641.641899712799,
+        "start_bal": 42279.36359537517,
+        "end_bal": 48921.00549508797
+      },
+      "2025-08": {
+        "trades": 1,
+        "pnl": 98.62804192349128,
+        "start_bal": 48921.00549508797,
+        "end_bal": 49019.63353701146
+      },
+      "2026-02": {
+        "trades": 3,
+        "pnl": -2294.99911944566,
+        "start_bal": 49019.63353701146,
+        "end_bal": 46724.63441756581
+      },
+      "2026-03": {
+        "trades": 1,
+        "pnl": -2185.3389362562834,
+        "start_bal": 46724.63441756581,
+        "end_bal": 44539.29548130953
+      }
+    }
+  }
+}
