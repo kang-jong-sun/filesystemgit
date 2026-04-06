@@ -24,7 +24,7 @@ SYMBOL = 'ETH/USDT'
 BINANCE_SYMBOL = 'ETHUSDT'
 LEVERAGE = 10
 MARGIN_MODE = 'isolated'
-FEE_RATE = 0.0004
+FEE_RATE = 0.0005
 DB_PATH = 'eth_trading_bot.db'
 TRADE_LOG_PATH = 'logs/eth_trades.txt'
 

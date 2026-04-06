@@ -7,7 +7,7 @@ def ema_pd(s, p): return s.ewm(span=p, adjust=False).mean()
 def bt(c, h, l, fm, sm, n, WU, IMMEDIATE_ENTRY):
     """IMMEDIATE_ENTRY=True: REV 후 같은 봉 즉시 재진입"""
     cap=5000.0; pos=0; epx=0.0; psz=0.0; slp=0.0; ton=0; thi=0.0; tlo=999999.0
-    w=0; ws=0; ld=0; pk=cap; mdd=0.0; FEE=0.0004
+    w=0; ws=0; ld=0; pk=cap; mdd=0.0; FEE=0.0005
     SL=2.0; TA=54.0; TSL=8.0; MON=18; MPCT=0.20
     sc=tc=rc=wn=ln_=0; gp=gl=0.0; trades=[]
 

@@ -9,7 +9,9 @@ V8.16: EMA(250)/EMA(1575) 10m Trend System
 """
 
 import asyncio
+import glob
 import logging
+import os
 import time
 from datetime import datetime, timezone
 
@@ -27,7 +29,9 @@ TIMEFRAME_API = '5m'        # 바이낸스 API: 5분봉 수집
 TIMEFRAME_RESAMPLE = '10min' # 내부: 10분봉으로 리샘플링
 FAST_MA_PERIOD = 250
 SLOW_MA_PERIOD = 1575
-CANDLE_LIMIT = 4000  # 5분봉 4000개 → 10분봉 2000개 (EMA1575 워밍업)
+CANDLE_LIMIT = 4000  # CSV 없을 때 API에서 로드할 5분봉 수
+CSV_PATH = 'eth_usdt_5m_2020_TO_NOW_merged.csv'  # 기존 merged CSV (호환용)
+CSV_SAVE_INTERVAL = 300  # CSV 저장 주기 (초) — 5분
 
 
 class DataCollector:
@@ -59,6 +63,7 @@ class DataCollector:
         self._ws_task: asyncio.Task = None
         self._ws_running = False
         self._ws = None
+        self._last_csv_save: float = 0.0
 
     async def initialize(self):
         logger.info("초기 캔들 데이터 로딩...")
@@ -68,34 +73,92 @@ class DataCollector:
                     f"EMA250={self.fast_ma[-1]:.2f}, EMA1575={self.slow_ma[-1]:.2f}")
 
     async def _load_historical_candles(self):
-        """5분봉 로드 → 10분봉 리샘플링"""
-        all_candles = []
-        since = None
-        total_needed = CANDLE_LIMIT
+        """5분봉 로드 → 10분봉 리샘플링
+        1순위: 연도별 CSV(eth_5m_YYYY.csv) → API 최신 보충
+        2순위: 기존 merged CSV → API 최신 보충
+        3순위: API에서 CANDLE_LIMIT만큼 로드
+        """
+        df5 = None
 
-        while len(all_candles) < total_needed:
-            limit = min(1500, total_needed - len(all_candles))
-            candles = await self.exchange.fetch_ohlcv(
-                SYMBOL, TIMEFRAME_API, since=since, limit=limit
-            )
-            if not candles:
-                break
-            all_candles.extend(candles)
-            since = candles[-1][0] + 1
-            if len(candles) < limit:
-                break
-            await asyncio.sleep(0.1)
+        # ── 1단계: CSV에서 히스토리 로드 ──
+        df_csv = self._load_yearly_csvs()
+        if df_csv is None and os.path.exists(CSV_PATH):
+            try:
+                df_csv = pd.read_csv(CSV_PATH, parse_dates=['timestamp'])
+                df_csv.set_index('timestamp', inplace=True)
+                df_csv = df_csv[['open', 'high', 'low', 'close', 'volume']].astype(float)
+                logger.info(f"  기존 CSV 로드: {len(df_csv):,}봉")
+            except Exception as e:
+                logger.warning(f"  기존 CSV 로드 실패: {e}")
+                df_csv = None
 
-        df5 = pd.DataFrame(all_candles, columns=[
-            'timestamp', 'open', 'high', 'low', 'close', 'volume'
-        ])
-        df5['timestamp'] = pd.to_datetime(df5['timestamp'], unit='ms', utc=True)
-        df5.set_index('timestamp', inplace=True)
-        df5 = df5.astype(float)
+        if df_csv is not None:
+            try:
+                if df_csv.index.tz is None:
+                    df_csv.index = df_csv.index.tz_localize('UTC')
+                df_csv = df_csv[~df_csv.index.duplicated(keep='last')]
+                df_csv.sort_index(inplace=True)
+                logger.info(f"  CSV 총: {len(df_csv):,}봉 "
+                            f"({df_csv.index[0]} ~ {df_csv.index[-1]})")
+
+                # API로 CSV 이후 최신 봉 보충
+                last_ts_ms = int(df_csv.index[-1].timestamp() * 1000) + 1
+                api_candles = []
+                since = last_ts_ms
+                for _ in range(10):
+                    candles = await self.exchange.fetch_ohlcv(
+                        SYMBOL, TIMEFRAME_API, since=since, limit=1500)
+                    if not candles:
+                        break
+                    api_candles.extend(candles)
+                    since = candles[-1][0] + 1
+                    if len(candles) < 1500:
+                        break
+                    await asyncio.sleep(0.1)
+
+                if api_candles:
+                    df_api = pd.DataFrame(api_candles, columns=[
+                        'timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                    df_api['timestamp'] = pd.to_datetime(df_api['timestamp'], unit='ms', utc=True)
+                    df_api.set_index('timestamp', inplace=True)
+                    df_api = df_api.astype(float)
+                    logger.info(f"  API 보충: {len(df_api)}봉 "
+                                f"({df_api.index[0]} ~ {df_api.index[-1]})")
+                    df5 = pd.concat([df_csv, df_api])
+                else:
+                    logger.info("  API 보충: 최신 데이터 없음 (CSV가 최신)")
+                    df5 = df_csv
+            except Exception as e:
+                logger.warning(f"  CSV 로드 실패: {e}, API로 전환")
+                df5 = None
+
+        # ── 2단계: CSV 없으면 API에서 로드 (기존 방식) ──
+        if df5 is None:
+            logger.info("  CSV 없음 — API에서 로드")
+            all_candles = []
+            since = None
+            total_needed = CANDLE_LIMIT
+            while len(all_candles) < total_needed:
+                limit = min(1500, total_needed - len(all_candles))
+                candles = await self.exchange.fetch_ohlcv(
+                    SYMBOL, TIMEFRAME_API, since=since, limit=limit)
+                if not candles:
+                    break
+                all_candles.extend(candles)
+                since = candles[-1][0] + 1
+                if len(candles) < limit:
+                    break
+                await asyncio.sleep(0.1)
+            df5 = pd.DataFrame(all_candles, columns=[
+                'timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df5['timestamp'] = pd.to_datetime(df5['timestamp'], unit='ms', utc=True)
+            df5.set_index('timestamp', inplace=True)
+            df5 = df5.astype(float)
+
+        # ── 공통: 정리 및 리샘플링 ──
         df5 = df5[~df5.index.duplicated(keep='last')]
         df5.sort_index(inplace=True)
-
-        logger.info(f"  5분봉 로드: {len(df5)}봉")
+        logger.info(f"  5분봉 총: {len(df5):,}봉")
 
         # 10분봉 리샘플링
         self.df = df5.resample(TIMEFRAME_RESAMPLE).agg({
@@ -110,6 +173,52 @@ class DataCollector:
 
         # 5분봉 원본 보관 (업데이트용)
         self._df5 = df5
+
+        # CSV 저장 (API 보충분 포함 — 초기 로드 시 전체 저장)
+        self._save_candles(full=True)
+        self._last_csv_save = time.time()
+
+    @staticmethod
+    def _load_yearly_csvs() -> pd.DataFrame:
+        """연도별 CSV 파일들을 로드하여 합치기"""
+        files = sorted(glob.glob('eth_5m_*.csv'))
+        if not files:
+            return None
+        dfs = []
+        for f in files:
+            df = pd.read_csv(f, parse_dates=['timestamp'], index_col='timestamp')
+            dfs.append(df)
+            logger.info(f"    {f}: {len(df):,}봉")
+        combined = pd.concat(dfs)
+        combined = combined[~combined.index.duplicated(keep='last')]
+        combined.sort_index(inplace=True)
+        return combined
+
+    def _save_candles(self, full=False):
+        """5분봉 데이터를 연도별 CSV로 분할 저장
+        full=True: 전체 연도 저장 (초기 로드 시)
+        full=False: 현재 연도만 저장 (주기적 저장 시)
+        """
+        try:
+            df_save = self._df5.copy()
+            if df_save.index.tz is not None:
+                df_save.index = df_save.index.tz_localize(None)
+            df_save.index.name = 'timestamp'
+            df_save = df_save[['open', 'high', 'low', 'close', 'volume']]
+
+            if full:
+                years = df_save.index.year.unique()
+                for year in years:
+                    df_year = df_save[df_save.index.year == year]
+                    df_year.to_csv(f'eth_5m_{year}.csv')
+                logger.info(f"  CSV 전체 저장: {len(df_save):,}봉, {len(years)}개 파일")
+            else:
+                current_year = df_save.index[-1].year
+                df_year = df_save[df_save.index.year == current_year]
+                df_year.to_csv(f'eth_5m_{current_year}.csv')
+                logger.info(f"  CSV 저장: eth_5m_{current_year}.csv ({len(df_year):,}봉)")
+        except Exception as e:
+            logger.error(f"  CSV 저장 실패: {e}")
 
     def _calculate_indicators(self):
         close_s = self.df['close']
@@ -149,8 +258,13 @@ class DataCollector:
 
             if new_count > 0:
                 logger.info(f"새 5분봉 {new_count}개, 10분봉 총 {len(self.df)}봉")
-                return True
-            return False
+
+            # 주기적 CSV 저장 (5분마다, 현재 연도만)
+            if time.time() - self._last_csv_save >= CSV_SAVE_INTERVAL:
+                self._save_candles(full=False)
+                self._last_csv_save = time.time()
+
+            return new_count > 0
 
         except Exception as e:
             logger.error(f"캔들 업데이트 오류: {e}")

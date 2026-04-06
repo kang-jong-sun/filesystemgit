@@ -53,10 +53,10 @@ MONITOR_WINDOW = 18          # 크로스 후 18봉 (3시간)
 SKIP_SAME_DIR = True
 SL_PCT = 2.0                 # 가격 -2%
 TA_PCT = 54.0                # 가격 +54% (TSL 활성화)
-TSL_PCT = 8.0                # 고점 대비 -8%
+TSL_PCT = 2.75               # 고점 대비 -2.75%
 MARGIN_PCT = 0.20            # 잔액의 20% (복리)
 LEVERAGE = 10
-FEE_RATE = 0.0004            # 0.04%
+FEE_RATE = 0.0005            # 0.05%
 # 필터 ALL OFF
 
 
