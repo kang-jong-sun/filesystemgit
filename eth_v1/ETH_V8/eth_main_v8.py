@@ -106,12 +106,15 @@ class ETHTradingBot:
         self.logger.info(f"초기화 완료 | 잔액: ${self.executor.balance:,.2f}")
 
     async def _check_manual_position(self):
+        # ★ 통계 먼저 복원 (포지션 유무와 무관하게 항상)
+        self.core.load_state()
+
         ex_pos = await self.executor.get_exchange_position()
         if not ex_pos:
             self.core.save_state()
             return
 
-        restored = self.core.load_state()
+        restored = self.core.has_position
         if restored and self.core.position.direction == ex_pos['direction']:
             self.core.position.position_size = ex_pos['notional']
             self.core.position.margin_used = ex_pos['notional'] / LEVERAGE
