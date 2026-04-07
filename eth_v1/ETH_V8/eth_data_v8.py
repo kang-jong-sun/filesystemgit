@@ -226,9 +226,30 @@ class DataCollector:
         self.high = self.df['high'].values.astype(np.float64)
         self.low = self.df['low'].values.astype(np.float64)
 
-        # EMA만 계산 (ADX/RSI 불필요 — 필터 OFF)
+        # 전략A: EMA(250)/EMA(1575) on 10분봉
         self.fast_ma = close_s.ewm(span=FAST_MA_PERIOD, adjust=False).mean().values.astype(np.float64)
         self.slow_ma = close_s.ewm(span=SLOW_MA_PERIOD, adjust=False).mean().values.astype(np.float64)
+
+        # 전략B: EMA(9) on 10분봉
+        self.b_ema9 = close_s.ewm(span=9, adjust=False).mean().values.astype(np.float64)
+
+        # 전략B: EMA(100) on 15분봉 → 10분봉 매핑
+        df15 = self._df5.resample('15min').agg({
+            'open': 'first', 'high': 'max', 'low': 'min',
+            'close': 'last', 'volume': 'sum'
+        }).dropna()
+        ema100_15m = df15['close'].ewm(span=100, adjust=False).mean()
+
+        # 15분봉 EMA(100) → 10분봉 매핑
+        ts15 = df15.index.values.astype(np.int64) // 10**9
+        ts10 = self.df.index.values.astype(np.int64) // 10**9
+        ema100_vals = ema100_15m.values
+        self.b_ema100_15m = np.full(len(self.df), np.nan)
+        j = 0
+        for i in range(len(self.df)):
+            while j < len(df15) - 1 and ts15[j + 1] <= ts10[i]:
+                j += 1
+            self.b_ema100_15m[i] = ema100_vals[j]
 
     async def update_candles(self):
         """5분봉 최신 가져와서 10분봉 재생성"""
@@ -349,10 +370,18 @@ class DataCollector:
             'close': self.close[i],
             'high': self.high[i],
             'low': self.low[i],
+            # 전략A
             'fast_ma': self.fast_ma[i],
             'slow_ma': self.slow_ma[i],
             'fast_ma_prev': self.fast_ma[i - 1],
             'slow_ma_prev': self.slow_ma[i - 1],
+            # 전략B
+            'b_ema9': self.b_ema9[i],
+            'b_ema100_15m': self.b_ema100_15m[i],
+            'b_ema9_prev': self.b_ema9[i - 1],
+            'b_ema100_15m_prev': self.b_ema100_15m[i - 1],
+            'b_ema9_prev2': self.b_ema9[i - 2] if i > 1 else None,
+            'b_ema100_15m_prev2': self.b_ema100_15m[i - 2] if i > 1 else None,
             'timestamp': str(self.df.index[i]),
             'realtime_price': self.current_price,
             'realtime_high': self.current_high,

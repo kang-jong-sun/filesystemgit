@@ -67,7 +67,7 @@ class SystemMonitor:
 
         lines = []
         lines.append("=" * 70)
-        lines.append("  ETH/USDT V8.16 | EMA(250)/EMA(1575) 10m | Margin 20% | 10x")
+        lines.append("  ETH/USDT V8.16 Dual | A:EMA250/1575 + B:EMA9/100 | 20% | 10x")
         lines.append("=" * 70)
         lines.append(f"  {now}  |  Uptime: {uptime}")
         lines.append("")
@@ -80,7 +80,12 @@ class SystemMonitor:
         lines.append(f"    EMA(250)      : ${bar['fast_ma']:,.2f}")
         lines.append(f"    EMA(1575)     : ${bar['slow_ma']:,.2f}")
         lines.append(f"    EMA Status    : {ema_status} (Gap: {ema_gap:.3f}%)")
-        lines.append(f"    Filters       : ALL OFF")
+        # 전략B EMA
+        b_ema9 = bar.get('b_ema9', 0)
+        b_ema100 = bar.get('b_ema100_15m', 0)
+        b_gap = abs(b_ema9 - b_ema100) / max(b_ema100, 1) * 100 if b_ema100 else 0
+        b_status = "BULL" if b_ema9 > b_ema100 else "BEAR"
+        lines.append(f"    [B] EMA9/100  : {b_status} (Gap: {b_gap:.3f}%)")
         lines.append("")
 
         # 잔액
@@ -103,7 +108,8 @@ class SystemMonitor:
             roi = (price - pos.entry_price) / pos.entry_price * pos.direction * 100
             pnl = (price - pos.entry_price) / pos.entry_price * pos.position_size * pos.direction
             hold_str = str(timedelta(seconds=int(time.time() - pos.entry_time)))
-            lines.append(f"    Direction     : {status['direction_str']}")
+            mode_str = f" [{pos.entry_mode}]" if hasattr(pos, 'entry_mode') else ""
+            lines.append(f"    Direction     : {status['direction_str']}{mode_str}")
             lines.append(f"    Entry Price   : ${pos.entry_price:,.2f}")
             lines.append(f"    Position Size : ${pos.position_size:,.0f} (Margin: ${pos.margin_used:,.0f})")
             lines.append(f"    Current ROI   : {roi:+.2f}%")

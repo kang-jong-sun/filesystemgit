@@ -189,6 +189,12 @@ class ETHTradingBot:
         elif signal.action == 'ENTER':
             await self._handle_entry(signal, bar, capital, bar_index)
 
+        # 전략B 체크 (전략A가 진입 안 했을 때만)
+        if not self.core.has_position:
+            signal_b = self.core.check_entry_b(bar, capital)
+            if signal_b.action == 'ENTER':
+                await self._handle_entry(signal_b, bar, capital, bar_index)
+
         if self.core.has_position:
             await self._manage_tsl(bar)
 
@@ -198,7 +204,8 @@ class ETHTradingBot:
         try:
             entry_info = self.core.open_position(
                 direction=signal.direction, entry_price=bar['close'],
-                capital=capital, bar_index=bar_index)
+                capital=capital, bar_index=bar_index,
+                entry_mode=signal.entry_mode)
 
             order = await self.executor.market_entry(
                 direction=signal.direction, position_size_usd=entry_info['position_size'],

@@ -40,12 +40,13 @@ import os
 import time
 from dataclasses import dataclass
 from enum import IntEnum
+import numpy as np
 from typing import Optional
 
 logger = logging.getLogger('eth_core')
 
 # ═══════════════════════════════════════════════════════════
-# 전략 파라미터 — V8.16 기획서 기준
+# 전략A 파라미터 — EMA(250)/EMA(1575) 10분봉 (추세 잡기)
 # ═══════════════════════════════════════════════════════════
 FAST_MA_PERIOD = 250
 SLOW_MA_PERIOD = 1575
@@ -58,6 +59,15 @@ MARGIN_PCT = 0.20            # 잔액의 20% (복리)
 LEVERAGE = 10
 FEE_RATE = 0.0005            # 0.05%
 # 필터 ALL OFF
+
+# ═══════════════════════════════════════════════════════════
+# 전략B 파라미터 — EMA(9)10m × EMA(100)15m (보완 전략)
+# ═══════════════════════════════════════════════════════════
+B_SL_PCT = 2.5               # SL -2.5%
+B_TA_PCT = 5.0               # TSL 활성화 +5%
+B_TSL_PCT = 0.3              # 고점 대비 -0.3% 트레일
+B_GAP_MIN = 0.5              # EMA 갭 ≥ 0.5% 필터
+# REV 없음 — SL/TSL만 사용
 
 
 class ExitType(IntEnum):
@@ -82,10 +92,11 @@ class PositionState:
     sl_price: float = 0.0
     tsl_active: bool = False
     track_high: float = 0.0
-    track_low: float = 999999.0
+    track_low: float = float('inf')
     entry_time: float = 0.0
     entry_bar: int = 0
     peak_roi: float = 0.0
+    entry_mode: str = 'A'     # 'A' = 전략A(추세), 'B' = 전략B(보완)
 
 
 @dataclass
@@ -118,6 +129,7 @@ class Signal:
     exit_type: str = ''
     exit_price: float = 0.0
     reason: str = ''
+    entry_mode: str = 'A'     # 'A' or 'B'
 
 
 class TradingCore:
@@ -187,24 +199,27 @@ class TradingCore:
             return None
 
         pos = self.position
+        # 전략별 파라미터 선택
+        ta_pct = TA_PCT if pos.entry_mode == 'A' else B_TA_PCT
+        tsl_pct = TSL_PCT if pos.entry_mode == 'A' else B_TSL_PCT
 
         # SL 체크 (TSL 미활성 시)
         if not pos.tsl_active:
             if pos.direction == 1 and low <= pos.sl_price:
                 return Signal(action='EXIT', direction=pos.direction, exit_type='SL',
-                              exit_price=pos.sl_price, reason=f"RT-SL (실시간 저가 ${low:,.2f} <= SL ${pos.sl_price:,.2f})")
+                              exit_price=pos.sl_price, reason=f"RT-SL [{pos.entry_mode}] (저가 ${low:,.2f} <= SL ${pos.sl_price:,.2f})")
             elif pos.direction == -1 and high >= pos.sl_price:
                 return Signal(action='EXIT', direction=pos.direction, exit_type='SL',
-                              exit_price=pos.sl_price, reason=f"RT-SL (실시간 고가 ${high:,.2f} >= SL ${pos.sl_price:,.2f})")
+                              exit_price=pos.sl_price, reason=f"RT-SL [{pos.entry_mode}] (고가 ${high:,.2f} >= SL ${pos.sl_price:,.2f})")
 
         # TA 활성화 체크
         if pos.direction == 1:
             br = (high - pos.entry_price) / pos.entry_price * 100
         else:
             br = (pos.entry_price - low) / pos.entry_price * 100
-        if br >= TA_PCT and not pos.tsl_active:
+        if br >= ta_pct and not pos.tsl_active:
             pos.tsl_active = True
-            logger.info(f"RT-TSL 활성화! (ROI {br:.1f}% >= {TA_PCT}%)")
+            logger.info(f"RT-TSL [{pos.entry_mode}] 활성화! (ROI {br:.1f}% >= {ta_pct}%)")
         if br > pos.peak_roi:
             pos.peak_roi = br
 
@@ -213,21 +228,21 @@ class TradingCore:
             if pos.direction == 1:
                 if high > pos.track_high:
                     pos.track_high = high
-                ns = pos.track_high * (1 - TSL_PCT / 100)
+                ns = pos.track_high * (1 - tsl_pct / 100)
                 if ns > pos.sl_price:
                     pos.sl_price = ns
                 if price <= pos.sl_price:
                     return Signal(action='EXIT', direction=pos.direction, exit_type='TSL',
-                                  exit_price=price, reason=f"RT-TSL (${price:,.2f} <= TSL ${pos.sl_price:,.2f})")
+                                  exit_price=price, reason=f"RT-TSL [{pos.entry_mode}] (${price:,.2f} <= TSL ${pos.sl_price:,.2f})")
             else:
                 if low < pos.track_low:
                     pos.track_low = low
-                ns = pos.track_low * (1 + TSL_PCT / 100)
+                ns = pos.track_low * (1 + tsl_pct / 100)
                 if ns < pos.sl_price:
                     pos.sl_price = ns
                 if price >= pos.sl_price:
                     return Signal(action='EXIT', direction=pos.direction, exit_type='TSL',
-                                  exit_price=price, reason=f"RT-TSL (${price:,.2f} >= TSL ${pos.sl_price:,.2f})")
+                                  exit_price=price, reason=f"RT-TSL [{pos.entry_mode}] (${price:,.2f} >= TSL ${pos.sl_price:,.2f})")
 
         return None
 
@@ -242,14 +257,18 @@ class TradingCore:
 
         self.watch.direction = 0
 
+        # 전략별 파라미터
+        ta_pct = TA_PCT if pos.entry_mode == 'A' else B_TA_PCT
+        tsl_pct = TSL_PCT if pos.entry_mode == 'A' else B_TSL_PCT
+
         # SL (TSL 미활성 시에만)
         if not pos.tsl_active:
             if pos.direction == 1 and l_ <= pos.sl_price:
                 return Signal(action='EXIT', direction=pos.direction, exit_type='SL',
-                              exit_price=pos.sl_price, reason=f"SL (SL가={pos.sl_price:.2f})")
+                              exit_price=pos.sl_price, reason=f"SL [{pos.entry_mode}] (SL가={pos.sl_price:.2f})")
             elif pos.direction == -1 and h_ >= pos.sl_price:
                 return Signal(action='EXIT', direction=pos.direction, exit_type='SL',
-                              exit_price=pos.sl_price, reason=f"SL (SL가={pos.sl_price:.2f})")
+                              exit_price=pos.sl_price, reason=f"SL [{pos.entry_mode}] (SL가={pos.sl_price:.2f})")
 
         # TA 활성화
         if pos.direction == 1:
@@ -257,9 +276,9 @@ class TradingCore:
         else:
             br = (pos.entry_price - l_) / pos.entry_price * 100
 
-        if br >= TA_PCT and not pos.tsl_active:
+        if br >= ta_pct and not pos.tsl_active:
             pos.tsl_active = True
-            logger.info(f"TSL 활성화! (ROI {br:.1f}% >= {TA_PCT}%)")
+            logger.info(f"TSL [{pos.entry_mode}] 활성화! (ROI {br:.1f}% >= {ta_pct}%)")
 
         if br > pos.peak_roi:
             pos.peak_roi = br
@@ -269,31 +288,32 @@ class TradingCore:
             if pos.direction == 1:
                 if h_ > pos.track_high:
                     pos.track_high = h_
-                ns = pos.track_high * (1 - TSL_PCT / 100)
+                ns = pos.track_high * (1 - tsl_pct / 100)
                 if ns > pos.sl_price:
                     pos.sl_price = ns
                 if px <= pos.sl_price:
                     return Signal(action='EXIT', direction=pos.direction, exit_type='TSL',
-                                  exit_price=px, reason=f"TSL (고점={pos.track_high:.2f})")
+                                  exit_price=px, reason=f"TSL [{pos.entry_mode}] (고점={pos.track_high:.2f})")
             else:
                 if l_ < pos.track_low:
                     pos.track_low = l_
-                ns = pos.track_low * (1 + TSL_PCT / 100)
+                ns = pos.track_low * (1 + tsl_pct / 100)
                 if ns < pos.sl_price:
                     pos.sl_price = ns
                 if px >= pos.sl_price:
                     return Signal(action='EXIT', direction=pos.direction, exit_type='TSL',
-                                  exit_price=px, reason=f"TSL (저점={pos.track_low:.2f})")
+                                  exit_price=px, reason=f"TSL [{pos.entry_mode}] (저점={pos.track_low:.2f})")
 
-        # REV
-        bull_now = bar['fast_ma'] > bar['slow_ma']
-        bull_prev = bar['fast_ma_prev'] > bar['slow_ma_prev']
-        cross_down = not bull_now and bull_prev
-        cross_up = bull_now and not bull_prev
+        # REV — 전략A만 (전략B는 REV 없음)
+        if pos.entry_mode == 'A':
+            bull_now = bar['fast_ma'] > bar['slow_ma']
+            bull_prev = bar['fast_ma_prev'] > bar['slow_ma_prev']
+            cross_down = not bull_now and bull_prev
+            cross_up = bull_now and not bull_prev
 
-        if (pos.direction == 1 and cross_down) or (pos.direction == -1 and cross_up):
-            return Signal(action='EXIT', direction=pos.direction, exit_type='REV',
-                          exit_price=px, reason="REV (EMA 크로스)")
+            if (pos.direction == 1 and cross_down) or (pos.direction == -1 and cross_up):
+                return Signal(action='EXIT', direction=pos.direction, exit_type='REV',
+                              exit_price=px, reason="REV [A] (EMA 크로스)")
 
         return Signal(action='NONE')
 
@@ -348,31 +368,81 @@ class TradingCore:
         # ═══ 진입! (필터 없음) ═══
         direction = self.watch.direction
         dir_str = "LONG" if direction == 1 else "SHORT"
-        logger.info(f"[SIGNAL] {dir_str} 진입 신호!")
+        logger.info(f"[SIGNAL-A] {dir_str} 진입 신호!")
 
         return Signal(action='ENTER', direction=direction,
-                      reason=f"{dir_str} 진입 (EMA cross)")
+                      reason=f"{dir_str} 진입 [A] (EMA cross)", entry_mode='A')
+
+    # ═══════════════════════════════════════════════════════════
+    # 전략B 진입 체크 — EMA(9) 10m × EMA(100) 15m + 갭 필터
+    # ═══════════════════════════════════════════════════════════
+    def check_entry_b(self, bar: dict, capital: float) -> Signal:
+        """전략B 진입 체크 — 봉마감 기준, 포지션 없을 때만 호출"""
+        if self.has_position or capital < 500:
+            return Signal(action='NONE')
+
+        b_ema9 = bar.get('b_ema9')
+        b_ema100 = bar.get('b_ema100_15m')
+        b_ema9_prev = bar.get('b_ema9_prev')
+        b_ema100_prev = bar.get('b_ema100_15m_prev')
+
+        if b_ema9 is None or b_ema100 is None or b_ema9_prev is None or b_ema100_prev is None:
+            return Signal(action='NONE')
+        if np.isnan(b_ema9) or np.isnan(b_ema100) or np.isnan(b_ema9_prev) or np.isnan(b_ema100_prev):
+            return Signal(action='NONE')
+
+        # 봉마감 기준 크로스 (이전봉에서 확정)
+        bull_now = b_ema9_prev > b_ema100_prev
+        bull_prev = bar.get('b_ema9_prev2', b_ema9_prev) > bar.get('b_ema100_15m_prev2', b_ema100_prev)
+
+        # prev2 없으면 스킵
+        if bar.get('b_ema9_prev2') is None:
+            return Signal(action='NONE')
+
+        bull_prev = bar['b_ema9_prev2'] > bar['b_ema100_15m_prev2']
+        cross_up = bull_now and not bull_prev
+        cross_down = not bull_now and bull_prev
+
+        if not cross_up and not cross_down:
+            return Signal(action='NONE')
+
+        # 갭 필터
+        gap = abs(b_ema9_prev - b_ema100_prev) / max(b_ema100_prev, 1e-10) * 100
+        if gap < B_GAP_MIN:
+            return Signal(action='NONE')
+
+        direction = 1 if cross_up else -1
+        dir_str = "LONG" if direction == 1 else "SHORT"
+        logger.info(f"[SIGNAL-B] {dir_str} 진입 신호! (갭 {gap:.2f}%)")
+
+        return Signal(action='ENTER', direction=direction,
+                      reason=f"{dir_str} 진입 [B] (EMA9/100 cross, 갭={gap:.2f}%)",
+                      entry_mode='B')
 
     # ═══════════════════════════════════════════════════════════
     # 포지션 관리
     # ═══════════════════════════════════════════════════════════
     def open_position(self, direction: int, entry_price: float,
-                      capital: float, bar_index: int) -> dict:
+                      capital: float, bar_index: int, entry_mode: str = 'A') -> dict:
         margin = capital * MARGIN_PCT
         position_size = margin * LEVERAGE
+
+        # 전략별 SL
+        sl_pct = SL_PCT if entry_mode == 'A' else B_SL_PCT
 
         self.position = PositionState(
             direction=direction, entry_price=entry_price,
             position_size=position_size, margin_used=margin,
-            sl_price=entry_price * (1 - SL_PCT / 100) if direction == 1
-                     else entry_price * (1 + SL_PCT / 100),
+            sl_price=entry_price * (1 - sl_pct / 100) if direction == 1
+                     else entry_price * (1 + sl_pct / 100),
             tsl_active=False, track_high=entry_price, track_low=entry_price,
             entry_time=time.time(), entry_bar=bar_index, peak_roi=0.0,
+            entry_mode=entry_mode,
         )
         self.watch.direction = 0
 
         dir_str = "LONG" if direction == 1 else "SHORT"
-        logger.info(f"포지션 오픈: {dir_str} @{entry_price:.2f}, "
+        logger.info(f"포지션 오픈 [{entry_mode}]: {dir_str} @{entry_price:.2f}, "
                     f"크기=${position_size:,.0f}, 마진=${margin:,.0f}, SL={self.position.sl_price:.2f}")
 
         return {
@@ -380,6 +450,7 @@ class TradingCore:
             'position_size': position_size,
             'sl_price': self.position.sl_price,
             'entry_fee': position_size * FEE_RATE,
+            'entry_mode': entry_mode,
         }
 
     def close_position(self, exit_price: float, exit_type: str,
@@ -410,6 +481,8 @@ class TradingCore:
             roi_pct=roi_pct, peak_roi=pos.peak_roi, tsl_active=pos.tsl_active,
         )
         self.trade_history.append(record)
+        if len(self.trade_history) > 500:
+            self.trade_history = self.trade_history[-500:]
 
         result = {
             'pnl': pnl, 'direction': pos.direction, 'entry_price': pos.entry_price,
@@ -430,6 +503,7 @@ class TradingCore:
                      else entry_price * (1 + SL_PCT / 100),
             tsl_active=False, track_high=entry_price, track_low=entry_price,
             entry_time=time.time(), entry_bar=bar_index, peak_roi=0.0,
+            entry_mode='A',
         )
 
     # ─── 상태 저장/복원 ───
@@ -454,8 +528,8 @@ class TradingCore:
             'sl_price': pos.sl_price, 'tsl_active': pos.tsl_active,
             'track_high': pos.track_high, 'track_low': pos.track_low,
             'entry_time': pos.entry_time, 'entry_bar': pos.entry_bar,
-            'peak_roi': pos.peak_roi, 'last_exit_dir': self.last_exit_dir,
-            'saved_at': time.time(),
+            'peak_roi': pos.peak_roi, 'entry_mode': pos.entry_mode,
+            'last_exit_dir': self.last_exit_dir, 'saved_at': time.time(),
         }
         try:
             with open(self.STATE_FILE, 'w', encoding='utf-8') as f:
@@ -495,6 +569,7 @@ class TradingCore:
                 track_high=state['track_high'], track_low=state['track_low'],
                 entry_time=state['entry_time'], entry_bar=state.get('entry_bar', 0),
                 peak_roi=state.get('peak_roi', 0),
+                entry_mode=state.get('entry_mode', 'A'),
             )
             self.last_exit_dir = state.get('last_exit_dir', 0)
             return True

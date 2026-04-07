@@ -73,7 +73,7 @@ class TelegramNotifier:
                f"Strategy: EMA(250)/EMA(1575) 10m\n"
                f"Balance: ${balance:,.2f}\n"
                f"Leverage: 10x | Margin: 20% | SL: 2%\n"
-               f"TA: 54% | TSL: 8% | Filters: OFF\n"
+               f"A: SL2%/TA54%/TSL2.75% | B: SL2.5%/TA5%/TSL0.3%\n"
                f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         if self.enabled and self._session:
             await self._send(msg)
