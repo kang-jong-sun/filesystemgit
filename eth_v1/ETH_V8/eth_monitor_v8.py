@@ -85,7 +85,9 @@ class SystemMonitor:
         b_ema100 = bar.get('b_ema100_15m', 0)
         b_gap = abs(b_ema9 - b_ema100) / max(b_ema100, 1) * 100 if b_ema100 else 0
         b_status = "BULL" if b_ema9 > b_ema100 else "BEAR"
-        lines.append(f"    [B] EMA9/100  : {b_status} (Gap: {b_gap:.3f}%)")
+        lines.append(f"    [B] EMA(9)    : ${b_ema9:,.2f}")
+        lines.append(f"    [B] EMA(100)  : ${b_ema100:,.2f}")
+        lines.append(f"    [B] Status    : {b_status} (Gap: {b_gap:.3f}%)")
         lines.append("")
 
         # 잔액
