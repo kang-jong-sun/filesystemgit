@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}ETH V8 Dashboard{% endblock %}
+{% block nav_dash %}text-emerald-400{% endblock %}
+
+{% block head %}
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- Price -->
+<div class="text-center mb-6">
+    <div class="text-gray-400 text-sm">ETH/USDT</div>
+    <div id="live-price" class="text-4xl font-bold text-white">{{ price|usd }}</div>
+    <div class="mt-1">
+        <span id="live-ema-status" class="{% if ema_status == 'BULL' %}text-emerald-400{% else %}text-red-400{% endif %} font-bold">{{ ema_status }}</span>
+        <span class="text-gray-500 text-sm ml-2">Gap: <span id="live-ema-gap">{{ "%.3f"|format(ema_gap) }}%</span></span>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <!-- Account -->
+    <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+        <h2 class="text-sm text-gray-400 mb-3 font-semibold">ACCOUNT</h2>
+        <div class="space-y-2">
+            <div class="flex justify-between">
+                <span class="text-gray-400">Balance</span>
+                <span id="live-balance" class="font-mono">{{ balance|usd }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Available</span>
+                <span id="live-available" class="font-mono">{{ available|usd }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Peak</span>
+                <span id="live-peak" class="font-mono">{{ peak_capital|usd }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">MDD</span>
+                <span id="live-mdd" class="font-mono">{{ "%.1f"|format(max_drawdown) }}%</span>
+            </div>
+            {% if total_transferred > 0 %}
+            <div class="flex justify-between border-t border-gray-700 pt-2">
+                <span class="text-gray-400">Transferred</span>
+                <span class="font-mono text-emerald-400">{{ total_transferred|usd }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Position -->
+    <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+        <h2 class="text-sm text-gray-400 mb-3 font-semibold">POSITION</h2>
+        {% if has_position %}
+        <div class="space-y-2">
+            <div class="flex justify-between">
+                <span class="text-gray-400">Direction</span>
+                <span class="font-bold {% if direction == 1 %}text-emerald-400{% else %}text-red-400{% endif %}">
+                    {{ direction_str }} [{{ entry_mode|default('A') }}]
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Entry</span>
+                <span class="font-mono">{{ entry_price|usd }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Size</span>
+                <span class="font-mono">{{ position_size|usd0 }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">ROI</span>
+                <span id="live-roi" class="{% if roi|default(0) >= 0 %}text-emerald-400{% else %}text-red-400{% endif %} text-2xl font-bold">
+                    {{ roi|default(0)|pct }}
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">PnL</span>
+                <span id="live-pnl" class="{% if unrealized_pnl|default(0) >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+                    {{ unrealized_pnl|default(0)|susd }}
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">SL</span>
+                <span class="font-mono">{{ sl_price|usd }}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">TSL</span>
+                <span class="{% if tsl_active %}text-emerald-400{% else %}text-gray-500{% endif %}">
+                    {{ 'ON' if tsl_active else 'OFF' }}
+                </span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-gray-400">Hold</span>
+                <span class="font-mono">{{ hold_time|default('-') }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+            <div class="text-gray-500 text-lg">NO POSITION</div>
+            {% if watching != 0 %}
+            <div class="text-yellow-400 text-sm mt-2">Watching: {{ watching_str }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- EMA -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+    <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 text-center">
+        <div class="text-xs text-gray-400">EMA(250)</div>
+        <div id="live-ema250" class="font-mono text-sm">{{ ema250|usd }}</div>
+    </div>
+    <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 text-center">
+        <div class="text-xs text-gray-400">EMA(1575)</div>
+        <div id="live-ema1575" class="font-mono text-sm">{{ ema1575|usd }}</div>
+    </div>
+    <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 text-center">
+        <div class="text-xs text-gray-400">[B] EMA(9)</div>
+        <div class="font-mono text-sm">{{ b_ema9|usd }}</div>
+    </div>
+    <div class="bg-gray-800 rounded-lg p-3 border border-gray-700 text-center">
+        <div class="text-xs text-gray-400">[B] EMA(100)</div>
+        <div class="font-mono text-sm">{{ b_ema100|usd }}</div>
+    </div>
+</div>
+
+<!-- Chart -->
+<div class="bg-gray-800 rounded-xl p-4 border border-gray-700 mb-6">
+    <div class="flex justify-between items-center mb-2">
+        <div class="flex items-center space-x-2">
+            <h2 class="text-sm text-gray-400 font-semibold">ETH/USDT 10m</h2>
+            <div class="flex space-x-1" id="chart-btns">
+                <span class="text-xs text-gray-400">3M</span>
+            </div>
+        </div>
+        <div class="flex space-x-2 text-xs">
+            <span class="text-white">── Price</span>
+            <span class="text-white opacity-60">╌ EMA(250)</span>
+            <span class="text-orange-400">── EMA(1575)</span>
+        </div>
+    </div>
+    <div id="chart-container" style="height: 400px;"></div>
+</div>
+
+<!-- Stats -->
+<div class="bg-gray-800 rounded-xl p-5 border border-gray-700 mb-6">
+    <h2 class="text-sm text-gray-400 mb-3 font-semibold">STATISTICS</h2>
+    <div class="grid grid-cols-3 md:grid-cols-6 gap-4 text-center">
+        <div>
+            <div class="text-xs text-gray-400">Trades</div>
+            <div id="live-trades" class="text-lg font-bold">{{ total_trades }}</div>
+        </div>
+        <div>
+            <div class="text-xs text-gray-400">Win Rate</div>
+            <div id="live-wr" class="text-lg font-bold">{{ "%.0f"|format(win_rate) }}%</div>
+        </div>
+        <div>
+            <div class="text-xs text-gray-400">PF</div>
+            <div id="live-pf" class="text-lg font-bold">{{ "%.2f"|format(profit_factor) }}</div>
+        </div>
+        <div>
+            <div class="text-xs text-gray-400">SL</div>
+            <div class="text-lg text-red-400">{{ sl_count }}</div>
+        </div>
+        <div>
+            <div class="text-xs text-gray-400">TSL</div>
+            <div class="text-lg text-emerald-400">{{ tsl_count }}</div>
+        </div>
+        <div>
+            <div class="text-xs text-gray-400">REV</div>
+            <div class="text-lg text-yellow-400">{{ rev_count }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Trades -->
+{% if recent_trades %}
+<div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+    <h2 class="text-sm text-gray-400 mb-3 font-semibold">RECENT TRADES</h2>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="text-gray-400 border-b border-gray-700">
+                <tr><th class="py-2 text-left">Time</th><th>Dir</th><th>Type</th><th class="text-right">Entry</th><th class="text-right">Exit</th><th class="text-right">PnL</th><th class="text-right">ROI</th></tr>
+            </thead>
+            <tbody>
+            {% for t in recent_trades %}
+                <tr class="border-b border-gray-700/50 {% if t.pnl >= 0 %}bg-emerald-900/10{% else %}bg-red-900/10{% endif %}">
+                    <td class="py-2 text-gray-400 text-xs">{{ t.exit_time }}</td>
+                    <td class="text-center font-bold {% if t.direction == 'L' %}text-emerald-400{% else %}text-red-400{% endif %}">{{ t.direction }}</td>
+                    <td class="text-center">{{ t.exit_type }}</td>
+                    <td class="text-right font-mono">{{ t.entry_price|usd0 }}</td>
+                    <td class="text-right font-mono">{{ t.exit_price|usd0 }}</td>
+                    <td class="text-right font-mono {% if t.pnl >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">{{ t.pnl|susd0 }}</td>
+                    <td class="text-right font-mono {% if t.roi_pct >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">{{ t.roi_pct|pct(1) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Error Log -->
+<div class="bg-gray-800 rounded-xl p-5 border border-gray-700 mt-6">
+    <div class="flex justify-between items-center mb-3">
+        <h2 class="text-sm text-gray-400 font-semibold">ERROR LOG</h2>
+        <button onclick="loadErrors()" class="text-xs text-gray-400 hover:text-white">Refresh</button>
+    </div>
+    <div id="error-log" class="text-xs font-mono space-y-1 max-h-48 overflow-y-auto">
+        <div class="text-gray-500">Loading...</div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Lightweight Charts 초기화 ──
+const chartEl = document.getElementById('chart-container');
+let chart, candleSeries, ema250Line, ema1575Line, entryLine, slLine;
+
+function initChart() {
+    chart = LightweightCharts.createChart(chartEl, {
+        layout: {
+            background: { color: '#1f2937' },
+            textColor: '#9ca3af',
+        },
+        grid: {
+            vertLines: { color: '#374151' },
+            horzLines: { color: '#374151' },
+        },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        rightPriceScale: { borderColor: '#4b5563' },
+        timeScale: {
+            borderColor: '#4b5563',
+            timeVisible: true,
+            secondsVisible: false,
+        },
+        width: chartEl.clientWidth,
+        height: 400,
+    });
+
+    candleSeries = chart.addCandlestickSeries({
+        upColor: '#10b981',
+        downColor: '#ef4444',
+        borderUpColor: '#10b981',
+        borderDownColor: '#ef4444',
+        wickUpColor: '#10b981',
+        wickDownColor: '#ef4444',
+    });
+
+    ema250Line = chart.addLineSeries({
+        color: 'rgba(255, 255, 255, 0.7)',
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Dashed,
+    });
+
+    ema1575Line = chart.addLineSeries({
+        color: '#f59e0b',
+        lineWidth: 2,
+    });
+}
+
+async function loadCandles(limit) {
+    limit = limit || 200;
+    try {
+        const url = limit === 0 ? '/api/candles?limit=0' : `/api/candles?limit=${limit}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.candles && data.candles.length > 0) {
+            candleSeries.setData(data.candles);
+            if (data.ema250) ema250Line.setData(data.ema250);
+            if (data.ema1575) ema1575Line.setData(data.ema1575);
+
+            // 포지션 라인
+            if (entryLine) { candleSeries.removePriceLine(entryLine); entryLine = null; }
+            if (slLine) { candleSeries.removePriceLine(slLine); slLine = null; }
+
+            if (data.position) {
+                entryLine = candleSeries.createPriceLine({
+                    price: data.position.entry_price,
+                    color: '#3b82f6',
+                    lineWidth: 1,
+                    lineStyle: LightweightCharts.LineStyle.Solid,
+                    axisLabelVisible: true,
+                    title: 'Entry',
+                });
+                slLine = candleSeries.createPriceLine({
+                    price: data.position.sl_price,
+                    color: '#ef4444',
+                    lineWidth: 1,
+                    lineStyle: LightweightCharts.LineStyle.Dashed,
+                    axisLabelVisible: true,
+                    title: 'SL',
+                });
+            }
+
+            chart.timeScale().fitContent();
+        }
+    } catch (e) {
+        console.error('Chart load error:', e);
+    }
+}
+
+// WebSocket에서 실시간 캔들 업데이트
+const origUpdateElements = window.updateElements;
+window.updateElements = function(d) {
+    if (origUpdateElements) origUpdateElements(d);
+    // 실시간 가격으로 마지막 캔들 업데이트
+    if (d.price && candleSeries) {
+        const now = Math.floor(Date.now() / 1000);
+        const bar = now - (now % 600); // 10분 단위로 정렬
+        candleSeries.update({
+            time: bar,
+            open: d.price,
+            high: d.price,
+            low: d.price,
+            close: d.price,
+        });
+    }
+};
+
+// 차트 리사이즈
+window.addEventListener('resize', () => {
+    if (chart) chart.applyOptions({ width: chartEl.clientWidth });
+});
+
+function selectPeriod(btn, limit) {
+    document.querySelectorAll('.chart-btn').forEach(b => {
+        b.className = 'chart-btn px-2 py-1 bg-gray-700 rounded text-xs';
+    });
+    btn.className = 'chart-btn px-2 py-1 bg-emerald-700 rounded text-xs';
+    loadCandles(limit);
+}
+
+async function loadErrors() {
+    try {
+        const res = await fetch('/api/errors?limit=20');
+        const data = await res.json();
+        const el = document.getElementById('error-log');
+        if (data.errors && data.errors.length > 0) {
+            el.innerHTML = data.errors.map(e => {
+                const isCritical = e.includes('CRITICAL');
+                const cls = isCritical ? 'text-red-400' : 'text-yellow-400';
+                return `<div class="${cls}">${e.replace(/</g,'&lt;')}</div>`;
+            }).join('');
+        } else {
+            el.innerHTML = '<div class="text-emerald-400">No errors</div>';
+        }
+    } catch(e) {
+        document.getElementById('error-log').innerHTML = '<div class="text-gray-500">Failed to load</div>';
+    }
+}
+
+// 초기화
+initChart();
+loadCandles(12960);
+loadErrors();
+// 5분마다 전체 캔들 새로고침
+setInterval(loadCandles, 300000);
+</script>
+{% endblock %}

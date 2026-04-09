@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}ETH V8 - Balance{% endblock %}
+{% block nav_balance %}text-emerald-400{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Balance History</h2>
+        <div class="flex space-x-2">
+            <button onclick="loadChart(7)" class="px-3 py-1 bg-gray-700 rounded text-sm hover:bg-gray-600">7d</button>
+            <button onclick="loadChart(30)" class="px-3 py-1 bg-gray-700 rounded text-sm hover:bg-gray-600">30d</button>
+            <button onclick="loadChart(0)" class="px-3 py-1 bg-emerald-700 rounded text-sm hover:bg-emerald-600">All</button>
+        </div>
+    </div>
+    <div style="height: 400px;">
+        <canvas id="balanceChart"></canvas>
+    </div>
+</div>
+
+<div id="current-balance" class="text-center mt-4">
+    <span id="live-balance" class="text-2xl font-bold font-mono"></span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chart = null;
+
+async function loadChart(days) {
+    const url = days > 0 ? `/api/balance-history?days=${days}` : '/api/balance-history';
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.labels.length === 0) {
+        return;
+    }
+
+    const labels = data.labels.map(t => {
+        const d = new Date(t);
+        return `${d.getMonth()+1}/${d.getDate()}`;
+    });
+
+    if (chart) chart.destroy();
+    const ctx = document.getElementById('balanceChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Balance ($)',
+                data: data.values,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: data.values.length > 50 ? 0 : 3,
+                borderWidth: 2,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `$${ctx.parsed.y.toLocaleString(undefined,{maximumFractionDigits:2})}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#6b7280', maxTicksLimit: 10 },
+                    grid: { color: '#374151' }
+                },
+                y: {
+                    ticks: {
+                        color: '#6b7280',
+                        callback: (v) => `$${v.toLocaleString()}`
+                    },
+                    grid: { color: '#374151' }
+                }
+            }
+        }
+    });
+}
+
+loadChart(0);
+</script>
+{% endblock %}

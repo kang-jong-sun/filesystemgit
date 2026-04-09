@@ -1,6 +1,6 @@
 """
 ETH/USDT 선물 자동매매 - 주문 실행 및 포지션 관리
-V8.16: EMA(250)/EMA(1575) 10m Trend System
+V8: EMA(250)/EMA(1575) 10m Trend System
 
 - Binance Futures 주문 실행 (시장가)
 - 격리마진 / 레버리지 설정
@@ -81,6 +81,10 @@ class OrderExecutor:
         await self.db.execute('''CREATE TABLE IF NOT EXISTS daily_stats (
             date TEXT PRIMARY KEY, start_balance REAL, end_balance REAL,
             trades INTEGER, pnl REAL, wins INTEGER, losses INTEGER)''')
+        await self.db.execute('''CREATE TABLE IF NOT EXISTS transfers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT,
+            amount REAL, balance_before REAL, balance_after REAL,
+            tran_id TEXT, status TEXT)''')
         await self.db.commit()
         Path(TRADE_LOG_PATH).parent.mkdir(parents=True, exist_ok=True)
 
@@ -275,6 +279,34 @@ class OrderExecutor:
                 f.write(f"  Balance: ${self.balance:,.2f}\n{'='*60}\n")
         except Exception as e:
             logger.error(f"TXT 저장 오류: {e}")
+
+    async def transfer_to_spot(self, amount: float) -> dict:
+        """선물 -> 현물 USDT 이체"""
+        try:
+            result = await self.exchange.transfer('USDT', amount, 'future', 'spot')
+            tran_id = result.get('id', 'N/A')
+            logger.info(f"선물→현물 이체 완료: ${amount:,.2f} (tranId: {tran_id})")
+            await self.update_balance()
+
+            # DB 기록
+            if self.db:
+                now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                await self.db.execute('''INSERT INTO transfers
+                    (timestamp, amount, balance_before, balance_after, tran_id, status)
+                    VALUES (?, ?, ?, ?, ?, ?)''',
+                    (now_str, amount, amount + self.balance, self.balance, str(tran_id), 'SUCCESS'))
+                await self.db.commit()
+
+            return {'success': True, 'tran_id': tran_id, 'amount': amount,
+                    'remaining_balance': self.balance}
+        except Exception as e:
+            logger.error(f"선물→현물 이체 실패: ${amount:,.2f} - {e}")
+            return {'success': False, 'error': str(e)}
+
+    async def has_exchange_position(self) -> bool:
+        """거래소에 실제 열린 포지션이 있는지 확인"""
+        pos = await self.get_exchange_position()
+        return pos is not None
 
     async def close(self):
         if self.db: await self.db.close()

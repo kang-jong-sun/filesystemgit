@@ -2,6 +2,12 @@
 .env
 *.env
 
+# SSH 키 / 인증서 (절대 커밋 금지)
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+
 # 데이터 파일 (용량 큼)
 *.csv
 

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}ETH V8 - Trades{% endblock %}
+{% block nav_trades %}text-emerald-400{% endblock %}
+
+{% block content %}
+<div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Trade History</h2>
+        <span class="text-gray-400 text-sm">Total: {{ total }}</span>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="text-gray-400 border-b border-gray-700">
+                <tr>
+                    <th class="py-2 text-left">Date</th>
+                    <th>Dir</th>
+                    <th>Type</th>
+                    <th class="text-right">Entry</th>
+                    <th class="text-right">Exit</th>
+                    <th class="text-right">Size</th>
+                    <th class="text-right">PnL</th>
+                    <th class="text-right">ROI</th>
+                    <th class="text-right">Balance</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for t in trades %}
+                <tr class="border-b border-gray-700/50 {% if t.pnl and t.pnl >= 0 %}bg-emerald-900/10{% else %}bg-red-900/10{% endif %}">
+                    <td class="py-2 text-gray-400 text-xs whitespace-nowrap">{{ t.timestamp }}</td>
+                    <td class="text-center font-bold {% if t.direction == 'LONG' %}text-emerald-400{% else %}text-red-400{% endif %}">
+                        {{ 'L' if t.direction == 'LONG' else 'S' }}
+                    </td>
+                    <td class="text-center">{{ t.exit_type }}</td>
+                    <td class="text-right font-mono">{{ t.entry_price|usd }}</td>
+                    <td class="text-right font-mono">{{ t.exit_price|usd }}</td>
+                    <td class="text-right font-mono text-gray-400">{{ t.position_size|usd0 }}</td>
+                    <td class="text-right font-mono {% if t.pnl and t.pnl >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+                        {{ t.pnl|susd }}
+                    </td>
+                    <td class="text-right font-mono {% if t.roi_pct and t.roi_pct >= 0 %}text-emerald-400{% else %}text-red-400{% endif %}">
+                        {{ t.roi_pct|pct }}
+                    </td>
+                    <td class="text-right font-mono">{{ t.balance_after|usd }}</td>
+                </tr>
+            {% endfor %}
+            {% if not trades %}
+                <tr><td colspan="9" class="text-center py-8 text-gray-500">No trades yet</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if total_pages > 1 %}
+    <div class="flex justify-center items-center mt-4 space-x-4">
+        {% if page > 1 %}
+        <a href="/trades?page={{ page - 1 }}" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">Prev</a>
+        {% endif %}
+        <span class="text-gray-400">{{ page }} / {{ total_pages }}</span>
+        {% if page < total_pages %}
+        <a href="/trades?page={{ page + 1 }}" class="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

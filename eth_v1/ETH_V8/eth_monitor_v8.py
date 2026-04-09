@@ -1,6 +1,6 @@
 """
 ETH/USDT 선물 자동매매 - 실시간 모니터링
-V8.16: EMA(250)/EMA(1575) 10m Trend System
+V8: EMA(250)/EMA(1575) 10m Trend System
 """
 
 import asyncio
@@ -20,12 +20,14 @@ class SystemMonitor:
         self.data_collector = None
         self.trading_core = None
         self.executor = None
+        self.bot = None
         self.start_time: float = 0.0
 
-    def set_components(self, data_collector, trading_core, executor):
+    def set_components(self, data_collector, trading_core, executor, bot=None):
         self.data_collector = data_collector
         self.trading_core = trading_core
         self.executor = executor
+        self.bot = bot
 
     async def start(self):
         self._running = True
@@ -67,7 +69,7 @@ class SystemMonitor:
 
         lines = []
         lines.append("=" * 70)
-        lines.append("  ETH/USDT V8.16 Dual | A:EMA250/1575 + B:EMA9/100 | 20% | 10x")
+        lines.append("  ETH/USDT V8 Dual | A:EMA250/1575 + B:EMA9/100 | 20% | 10x")
         lines.append("=" * 70)
         lines.append(f"  {now}  |  Uptime: {uptime}")
         lines.append("")
@@ -101,6 +103,13 @@ class SystemMonitor:
             lines.append(f"    Total Equity  : ${ex.balance + unrealized:,.2f}")
         lines.append(f"    Peak Capital  : ${tc.peak_capital:,.2f}")
         lines.append(f"    Max Drawdown  : {tc.max_drawdown * 100:.1f}%")
+        # 이체 정보
+        if self.bot:
+            threshold = getattr(self.bot, '_transfer_threshold', 20_000_000)
+            total_xfer = getattr(self.bot, '_total_transferred', 0)
+            lines.append(f"    Transfer Thrs : ${threshold:,.0f}")
+            if total_xfer > 0:
+                lines.append(f"    Total Xferred : ${total_xfer:,.2f}")
         lines.append("")
 
         # 포지션

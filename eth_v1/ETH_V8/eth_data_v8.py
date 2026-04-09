@@ -1,6 +1,6 @@
 """
 ETH/USDT 선물 자동매매 - 데이터 수집 및 지표 계산
-V8.16: EMA(250)/EMA(1575) 10m Trend System
+V8: EMA(250)/EMA(1575) 10m Trend System
 
 - Binance Futures API 연동 (ccxt async)
 - 10분봉 캔들 데이터 수집 및 유지
@@ -174,21 +174,37 @@ class DataCollector:
         # 5분봉 원본 보관 (업데이트용)
         self._df5 = df5
 
-        # CSV 저장 (API 보충분 포함 — 초기 로드 시 전체 저장)
-        self._save_candles(full=True)
+        # CSV 저장 (API 보충분 포함 — 현재 연도만 저장)
+        self._save_candles(full=False)
         self._last_csv_save = time.time()
 
     @staticmethod
     def _load_yearly_csvs() -> pd.DataFrame:
-        """연도별 CSV 파일들을 로드하여 합치기"""
+        """연도별 CSV 파일들을 로드 (최근 1년만 — 메모리 절약)"""
         files = sorted(glob.glob('eth_5m_*.csv'))
         if not files:
             return None
+
+        current_year = datetime.now().year
+        min_year = current_year - 1  # 이전 연도 + 현재 연도만 로드
+
         dfs = []
         for f in files:
+            try:
+                year = int(os.path.basename(f).replace('eth_5m_', '').replace('.csv', ''))
+                if year < min_year:
+                    os.remove(f)
+                    logger.info(f"    {f}: 삭제 (1년 이전)")
+                    continue
+            except ValueError:
+                continue
             df = pd.read_csv(f, parse_dates=['timestamp'], index_col='timestamp')
             dfs.append(df)
             logger.info(f"    {f}: {len(df):,}봉")
+
+        if not dfs:
+            return None
+
         combined = pd.concat(dfs)
         combined = combined[~combined.index.duplicated(keep='last')]
         combined.sort_index(inplace=True)

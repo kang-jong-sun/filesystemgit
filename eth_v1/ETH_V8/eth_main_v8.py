@@ -1,5 +1,5 @@
 """
-ETH/USDT 선물 자동매매 시스템 V8.16
+ETH/USDT 선물 자동매매 시스템 V8
 EMA(250)/EMA(1575) 10m Trend System — 계정 20% 복리 마진
 
 사용법:
@@ -22,17 +22,30 @@ from eth_core_v8 import TradingCore, SL_PCT, TSL_PCT, TA_PCT, MARGIN_PCT, LEVERA
 from eth_executor_v8 import OrderExecutor
 from eth_monitor_v8 import SystemMonitor
 from eth_telegram_v8 import TelegramNotifier
+from eth_web_v8 import create_app, start_web_server
 
-VERSION = "8.16"
+VERSION = "8"
 LOOP_INTERVAL = 30
 CANDLE_CHECK = 60
 BALANCE_CHECK = 300
 POSITION_SYNC = 30
+TRANSFER_CHECK = 300          # 이체 체크 주기 (5분)
+TRANSFER_THRESHOLD = 20_000_000  # 선물 잔액 이체 기준 ($20M)
+STATUS_REPORT = 10800         # 텔레그램 상태 리포트 (3시간)
 
 
 def setup_logging():
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
+
+    # 1년 이전 로그 자동 삭제
+    import time as _time
+    cutoff = _time.time() - 365 * 86400
+    for old_log in log_dir.glob("eth_trading_*.log"):
+        if old_log.stat().st_mtime < cutoff:
+            old_log.unlink()
+            print(f"  오래된 로그 삭제: {old_log.name}")
+
     log_file = log_dir / f"eth_trading_{datetime.now().strftime('%Y%m%d')}.log"
     formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -69,6 +82,9 @@ class ETHTradingBot:
         self._last_balance_check = 0.0
         self._last_tsl_update_price = 0.0
         self._last_position_sync = 0.0
+        self._last_transfer_check = 0.0
+        self._last_status_report = 0.0
+        self._total_transferred = 0.0
         self._tsl_notified = False
         self._shutdown_done = False
 
@@ -93,14 +109,17 @@ class ETHTradingBot:
         self.logger.info("=" * 60)
         self.logger.info(f"  ETH/USDT Futures V{VERSION}")
         self.logger.info(f"  EMA(250)/EMA(1575) 10m | Margin 20% | 10x")
+        self.logger.info(f"  Auto Transfer: >${TRANSFER_THRESHOLD/1e6:.0f}M → Spot (no position)")
         self.logger.info("=" * 60)
 
         await self.data.initialize()
         await self.executor.initialize()
         await self.telegram.start()
 
-        self.monitor.set_components(self.data, self.core, self.executor)
+        self.monitor.set_components(self.data, self.core, self.executor, bot=self)
+        self._transfer_threshold = TRANSFER_THRESHOLD
         self.core.peak_capital = self.executor.balance
+        self.telegram.set_command_handler(self._handle_command)
         await self._check_manual_position()
         await self.telegram.notify_start(self.executor.balance)
         self.logger.info(f"초기화 완료 | 잔액: ${self.executor.balance:,.2f}")
@@ -165,6 +184,14 @@ class ETHTradingBot:
             await self.executor.update_balance()
             self.core.update_peak(self.executor.balance)
             self._last_balance_check = now
+
+        if now - self._last_transfer_check >= TRANSFER_CHECK:
+            await self._check_transfer()
+            self._last_transfer_check = now
+
+        if now - self._last_status_report >= STATUS_REPORT:
+            self._send_status_report()
+            self._last_status_report = now
 
         if now - self._last_position_sync >= POSITION_SYNC:
             await self._sync_position()
@@ -332,6 +359,174 @@ class ETHTradingBot:
             except Exception as e:
                 self.logger.error(f"TSL 업데이트 오류: {e}")
 
+    def _handle_command(self, command: str) -> str:
+        """텔레그램 명령어 처리"""
+        try:
+            bar = self.data.get_current_bar()
+            price = self.data.current_price if self.data.current_price > 0 else (bar['close'] if bar else 0)
+            uptime = time.time() - self.monitor.start_time
+            h, rem = divmod(int(uptime), 3600)
+            m, _ = divmod(rem, 60)
+
+            if command == '/status':
+                status = self.core.get_status()
+                ema_st = "BULL" if bar and bar['fast_ma'] > bar['slow_ma'] else "BEAR"
+                pos_str = "NO POSITION"
+                if status['has_position']:
+                    pos = self.core.position
+                    roi = (price - pos.entry_price) / pos.entry_price * pos.direction * 100
+                    pnl = (price - pos.entry_price) / pos.entry_price * pos.position_size * pos.direction
+                    d = "LONG" if pos.direction == 1 else "SHORT"
+                    pos_str = (f"{d} [{pos.entry_mode}] @${pos.entry_price:,.2f}\n"
+                               f"  ROI: {roi:+.2f}% | PnL: ${pnl:+,.2f}\n"
+                               f"  SL: ${pos.sl_price:,.2f} | TSL: {'ON' if pos.tsl_active else 'OFF'}")
+                net = status['gross_profit'] - status['gross_loss']
+                return (f"<b>[ETH V8] Status</b>\n"
+                        f"Uptime: {h}h {m}m\n"
+                        f"Price: ${price:,.2f} | EMA: {ema_st}\n\n"
+                        f"<b>Position:</b> {pos_str}\n\n"
+                        f"<b>Balance:</b> ${self.executor.balance:,.2f}\n"
+                        f"Trades: {status['total_trades']} | WR: {status['win_rate']:.0f}%\n"
+                        f"PF: {status['profit_factor']:.2f} | Net: ${net:+,.2f}")
+
+            elif command == '/pos':
+                if not self.core.has_position:
+                    return "<b>[ETH V8]</b> No open position"
+                pos = self.core.position
+                roi = (price - pos.entry_price) / pos.entry_price * pos.direction * 100
+                pnl = (price - pos.entry_price) / pos.entry_price * pos.position_size * pos.direction
+                d = "LONG" if pos.direction == 1 else "SHORT"
+                hold = time.time() - pos.entry_time
+                hh, rm = divmod(int(hold), 3600)
+                mm, _ = divmod(rm, 60)
+                return (f"<b>[ETH V8] Position</b>\n"
+                        f"Direction: {d} [{pos.entry_mode}]\n"
+                        f"Entry: ${pos.entry_price:,.2f}\n"
+                        f"Current: ${price:,.2f}\n"
+                        f"Size: ${pos.position_size:,.0f}\n"
+                        f"ROI: {roi:+.2f}% | PnL: ${pnl:+,.2f}\n"
+                        f"SL: ${pos.sl_price:,.2f}\n"
+                        f"TSL: {'ON' if pos.tsl_active else 'OFF'}\n"
+                        f"Peak ROI: {pos.peak_roi:+.2f}%\n"
+                        f"Hold: {hh}h {mm}m")
+
+            elif command == '/balance':
+                return (f"<b>[ETH V8] Balance</b>\n"
+                        f"Wallet: ${self.executor.balance:,.2f}\n"
+                        f"Available: ${self.executor.available_balance:,.2f}\n"
+                        f"Peak: ${self.core.peak_capital:,.2f}\n"
+                        f"MDD: {self.core.max_drawdown * 100:.1f}%")
+
+            elif command == '/trades':
+                if not self.core.trade_history:
+                    return "<b>[ETH V8]</b> No trades yet"
+                lines = ["<b>[ETH V8] Recent Trades</b>"]
+                for tr in self.core.trade_history[-5:]:
+                    d = "L" if tr.direction == 1 else "S"
+                    lines.append(f"{d} {tr.exit_type} ${tr.entry_price:,.0f}→${tr.exit_price:,.0f} "
+                                 f"${tr.pnl:+,.0f} ({tr.roi_pct:+.1f}%)")
+                return "\n".join(lines)
+
+            elif command == '/stop':
+                self.logger.info("텔레그램 /stop 명령 수신")
+                self.request_shutdown()
+                return "<b>[ETH V8]</b> Shutdown requested..."
+
+            elif command == '/help':
+                return ("<b>[ETH V8] Commands</b>\n"
+                        "/status - 전체 상태\n"
+                        "/pos - 포지션 상세\n"
+                        "/balance - 잔액\n"
+                        "/trades - 최근 거래\n"
+                        "/stop - 봇 정지")
+
+            else:
+                return f"Unknown command: {command}\nSend /help for commands"
+
+        except Exception as e:
+            self.logger.error(f"명령어 처리 오류: {e}")
+            return f"Error: {str(e)[:200]}"
+
+    def _send_status_report(self):
+        """3시간마다 텔레그램 상태 리포트"""
+        try:
+            bar = self.data.get_current_bar()
+            if bar is None:
+                return
+
+            price = self.data.current_price if self.data.current_price > 0 else bar['close']
+            uptime = time.time() - self.monitor.start_time
+            h, rem = divmod(int(uptime), 3600)
+            m, s = divmod(rem, 60)
+            uptime_str = f"{h}h {m}m"
+
+            status = self.core.get_status()
+            ema_status = "BULL" if bar['fast_ma'] > bar['slow_ma'] else "BEAR"
+            ema_gap = abs(bar['fast_ma'] - bar['slow_ma']) / bar['slow_ma'] * 100 if bar['slow_ma'] > 0 else 0
+
+            # 포지션 정보
+            if status['has_position']:
+                pos = self.core.position
+                roi = (price - pos.entry_price) / pos.entry_price * pos.direction * 100
+                pnl = (price - pos.entry_price) / pos.entry_price * pos.position_size * pos.direction
+                pos_str = (f"{'LONG' if pos.direction == 1 else 'SHORT'} [{pos.entry_mode}]\n"
+                           f"  Entry: ${pos.entry_price:,.2f} | ROI: {roi:+.2f}%\n"
+                           f"  PnL: ${pnl:+,.2f} | SL: ${pos.sl_price:,.2f}\n"
+                           f"  TSL: {'ON' if pos.tsl_active else 'OFF'}")
+            else:
+                pos_str = "NO POSITION"
+
+            self.telegram.notify_status_report(
+                price=price, balance=self.executor.balance,
+                ema_status=ema_status, ema_gap=ema_gap,
+                position_str=pos_str, status=status,
+                uptime_str=uptime_str,
+                total_transferred=self._total_transferred)
+
+        except Exception as e:
+            self.logger.error(f"상태 리포트 오류: {e}")
+
+    async def _check_transfer(self):
+        """선물 잔액이 TRANSFER_THRESHOLD 초과 시 현물로 이체 (포지션 없을 때만)"""
+        try:
+            balance = self.executor.balance
+            if balance <= TRANSFER_THRESHOLD:
+                return
+
+            # 봇 추적 포지션 확인
+            if self.core.has_position:
+                return
+
+            # 거래소 실제 포지션 이중 확인
+            if await self.executor.has_exchange_position():
+                self.logger.info("이체 스킵: 거래소에 열린 포지션 존재")
+                return
+
+            transfer_amount = balance - TRANSFER_THRESHOLD
+            if transfer_amount < 1:
+                return
+
+            balance_before = balance
+            self.logger.info(f"이체 시작: ${transfer_amount:,.2f} (잔액 ${balance:,.2f} > ${TRANSFER_THRESHOLD:,.0f})")
+
+            result = await self.executor.transfer_to_spot(transfer_amount)
+
+            if result['success']:
+                self._total_transferred += transfer_amount
+                self.logger.info(f"이체 완료: ${transfer_amount:,.2f} → 현물 | "
+                                 f"선물 잔액: ${self.executor.balance:,.2f} | "
+                                 f"누적 이체: ${self._total_transferred:,.2f}")
+                self.telegram.notify_transfer(
+                    transfer_amount, balance_before,
+                    self.executor.balance, result['tran_id'])
+            else:
+                self.logger.error(f"이체 실패: {result.get('error', 'unknown')}")
+                self.telegram.notify_transfer_failed(
+                    transfer_amount, result.get('error', 'unknown'))
+
+        except Exception as e:
+            self.logger.error(f"이체 체크 오류: {e}", exc_info=True)
+
     def request_shutdown(self):
         self._running = False
         self._shutdown_event.set()
@@ -379,6 +574,7 @@ class ETHTradingBot:
 async def main():
     logger = setup_logging()
     bot = ETHTradingBot()
+    web_server = None
 
     loop = asyncio.get_event_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -387,6 +583,12 @@ async def main():
 
     try:
         await bot.initialize()
+
+        # 웹 대시보드 시작
+        web_port = int(os.getenv('WEB_PORT', '8080'))
+        app = create_app(bot)
+        web_server = await start_web_server(app, port=web_port)
+
         await bot.run()
     except KeyboardInterrupt: pass
     except Exception as e:
@@ -397,6 +599,8 @@ async def main():
                 await asyncio.sleep(2)
             except Exception: pass
     finally:
+        if web_server:
+            web_server.should_exit = True
         await bot._shutdown()
 
 

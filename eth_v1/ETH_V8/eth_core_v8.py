@@ -1,9 +1,9 @@
 """
 ETH/USDT 선물 자동매매 - 핵심 트레이딩 로직
-V8.16: EMA(250)/EMA(1575) 10m Trend System — 계정 20% 복리 마진
+V8: EMA(250)/EMA(1575) 10m Trend System — 계정 20% 복리 마진
 
 ═══════════════════════════════════════════════════
-  가격 기준 (V8.16 기획서 정확 구현)
+  가격 기준 (V8 기획서 정확 구현)
 ═══════════════════════════════════════════════════
   진입가       : 종가 (close)
   SL 발동      : 저가/고가 (intrabar) + 실시간 가격 (30초)
@@ -54,18 +54,19 @@ MONITOR_WINDOW = 18          # 크로스 후 18봉 (3시간)
 SKIP_SAME_DIR = True
 SL_PCT = 2.0                 # 가격 -2%
 TA_PCT = 54.0                # 가격 +54% (TSL 활성화)
-TSL_PCT = 2.75               # 고점 대비 -2.75%
+TSL_PCT = 2.0                # 고점 대비 -2.0% (최적화 결과)
 MARGIN_PCT = 0.20            # 잔액의 20% (복리)
 LEVERAGE = 10
 FEE_RATE = 0.0005            # 0.05%
+MAX_CAPITAL = 20_000_000     # 마진 계산 상한 ($20M) — 슬리피지 방지
 # 필터 ALL OFF
 
 # ═══════════════════════════════════════════════════════════
 # 전략B 파라미터 — EMA(9)10m × EMA(100)15m (보완 전략)
 # ═══════════════════════════════════════════════════════════
 B_SL_PCT = 2.5               # SL -2.5%
-B_TA_PCT = 5.0               # TSL 활성화 +5%
-B_TSL_PCT = 0.3              # 고점 대비 -0.3% 트레일
+B_TA_PCT = 7.0               # TSL 활성화 +7% (최적화 결과)
+B_TSL_PCT = 0.2              # 고점 대비 -0.2% 트레일 (최적화 결과)
 B_GAP_MIN = 0.5              # EMA 갭 ≥ 0.5% 필터
 # REV 없음 — SL/TSL만 사용
 
@@ -133,7 +134,7 @@ class Signal:
 
 
 class TradingCore:
-    """핵심 트레이딩 로직 — V8.16 기획서 정확 구현"""
+    """핵심 트레이딩 로직 — V8 기획서 정확 구현"""
 
     def __init__(self):
         self.position = PositionState()
@@ -424,7 +425,8 @@ class TradingCore:
     # ═══════════════════════════════════════════════════════════
     def open_position(self, direction: int, entry_price: float,
                       capital: float, bar_index: int, entry_mode: str = 'A') -> dict:
-        margin = capital * MARGIN_PCT
+        effective_capital = min(capital, MAX_CAPITAL)
+        margin = effective_capital * MARGIN_PCT
         position_size = margin * LEVERAGE
 
         # 전략별 SL
