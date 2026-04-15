@@ -30,7 +30,7 @@ CANDLE_CHECK = 60
 BALANCE_CHECK = 300
 POSITION_SYNC = 30
 TRANSFER_CHECK = 300          # 이체 체크 주기 (5분)
-TRANSFER_THRESHOLD = 20_000_000  # 선물 잔액 이체 기준 ($20M)
+TRANSFER_THRESHOLD = 5_000_000   # 선물 잔액 이체 기준 ($5M) — MAX_CAPITAL $1M 대비 5배 여유
 STATUS_REPORT = 10800         # 텔레그램 상태 리포트 (3시간)
 
 
