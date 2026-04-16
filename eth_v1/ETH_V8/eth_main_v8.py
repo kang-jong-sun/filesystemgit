@@ -32,6 +32,7 @@ POSITION_SYNC = 30
 TRANSFER_CHECK = 300          # 이체 체크 주기 (5분)
 TRANSFER_THRESHOLD = 5_000_000   # 선물 잔액 이체 기준 ($5M) — MAX_CAPITAL $1M 대비 5배 여유
 STATUS_REPORT = 10800         # 텔레그램 상태 리포트 (3시간)
+CSV_CLEANUP_CHECK = 3600      # CSV cleanup 체크 주기 (1시간, 매월 1일만 실제 실행)
 
 
 def setup_logging():
@@ -80,6 +81,7 @@ class ETHTradingBot:
         self.telegram: TelegramNotifier = None
         self._last_candle_check = 0.0
         self._last_balance_check = 0.0
+        self._last_csv_cleanup_check = 0.0
         self._last_tsl_update_price = 0.0
         self._last_position_sync = 0.0
         self._last_transfer_check = 0.0
@@ -197,6 +199,10 @@ class ETHTradingBot:
             await self._sync_position()
             self._last_position_sync = now
 
+        if now - self._last_csv_cleanup_check >= CSV_CLEANUP_CHECK:
+            self.data.cleanup_old_csv()
+            self._last_csv_cleanup_check = now
+
         bar = self.data.get_current_bar()
         if bar is None: return
 
@@ -232,10 +238,12 @@ class ETHTradingBot:
 
     async def _handle_entry(self, signal, bar, capital, bar_index):
         try:
+            # V16 Balanced: 전략A는 signal.score/mult/tier 적용, B는 기본값(mult=1.0)
             entry_info = self.core.open_position(
                 direction=signal.direction, entry_price=bar['close'],
                 capital=capital, bar_index=bar_index,
-                entry_mode=signal.entry_mode)
+                entry_mode=signal.entry_mode,
+                score=signal.score, mult=signal.mult, tier=signal.tier)
 
             order = await self.executor.market_entry(
                 direction=signal.direction, position_size_usd=entry_info['position_size'],
@@ -251,6 +259,10 @@ class ETHTradingBot:
                 'margin': entry_info['margin'], 'sl_price': entry_info['sl_price'],
                 'balance_before': capital, 'balance_after': self.executor.balance,
                 'ema250': bar.get('fast_ma', 0), 'ema1575': bar.get('slow_ma', 0),
+                'entry_mode': signal.entry_mode,
+                'score': entry_info.get('score', 0),
+                'tier': entry_info.get('tier', 'N/A'),
+                'mult': entry_info.get('mult', 1.0),
             })
 
             self._tsl_notified = False
@@ -258,7 +270,11 @@ class ETHTradingBot:
             self.telegram.notify_entry(
                 direction=signal.direction, entry_price=order['filled_price'],
                 position_size=entry_info['position_size'], sl_price=entry_info['sl_price'],
-                balance=self.executor.balance, bar_info=bar)
+                balance=self.executor.balance, bar_info=bar,
+                entry_mode=signal.entry_mode,
+                score=entry_info.get('score', 0),
+                tier=entry_info.get('tier', 'N/A'),
+                mult=entry_info.get('mult', 1.0))
 
         except Exception as e:
             self.logger.error(f"진입 처리 오류: {e}", exc_info=True)
@@ -377,7 +393,9 @@ class ETHTradingBot:
                     roi = (price - pos.entry_price) / pos.entry_price * pos.direction * 100
                     pnl = (price - pos.entry_price) / pos.entry_price * pos.position_size * pos.direction
                     d = "LONG" if pos.direction == 1 else "SHORT"
+                    sizing_line = f"  Score: {pos.score:.0f} / {pos.tier} ({pos.mult:.1f}x)\n" if pos.entry_mode == 'A' else ""
                     pos_str = (f"{d} [{pos.entry_mode}] @${pos.entry_price:,.2f}\n"
+                               f"{sizing_line}"
                                f"  ROI: {roi:+.2f}% | PnL: ${pnl:+,.2f}\n"
                                f"  SL: ${pos.sl_price:,.2f} | TSL: {'ON' if pos.tsl_active else 'OFF'}")
                 net = status['gross_profit'] - status['gross_loss']
@@ -399,8 +417,10 @@ class ETHTradingBot:
                 hold = time.time() - pos.entry_time
                 hh, rm = divmod(int(hold), 3600)
                 mm, _ = divmod(rm, 60)
+                sizing_line = f"Sizing: {pos.tier} | Score: {pos.score:.0f} | Mult: {pos.mult:.1f}x\n" if pos.entry_mode == 'A' else ""
                 return (f"<b>[ETH V8] Position</b>\n"
                         f"Direction: {d} [{pos.entry_mode}]\n"
+                        f"{sizing_line}"
                         f"Entry: ${pos.entry_price:,.2f}\n"
                         f"Current: ${price:,.2f}\n"
                         f"Size: ${pos.position_size:,.0f}\n"
@@ -469,7 +489,9 @@ class ETHTradingBot:
                 pos = self.core.position
                 roi = (price - pos.entry_price) / pos.entry_price * pos.direction * 100
                 pnl = (price - pos.entry_price) / pos.entry_price * pos.position_size * pos.direction
+                sizing_line = f"  Score: {pos.score:.0f} / {pos.tier} ({pos.mult:.1f}x)\n" if pos.entry_mode == 'A' else ""
                 pos_str = (f"{'LONG' if pos.direction == 1 else 'SHORT'} [{pos.entry_mode}]\n"
+                           f"{sizing_line}"
                            f"  Entry: ${pos.entry_price:,.2f} | ROI: {roi:+.2f}%\n"
                            f"  PnL: ${pnl:+,.2f} | SL: ${pos.sl_price:,.2f}\n"
                            f"  TSL: {'ON' if pos.tsl_active else 'OFF'}")

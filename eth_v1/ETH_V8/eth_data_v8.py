@@ -1,10 +1,15 @@
 """
 ETH/USDT 선물 자동매매 - 데이터 수집 및 지표 계산
 V8: EMA(250)/EMA(1575) 10m Trend System
+V16 Balanced: Confidence Score Sizing (ADX/RSI/LR/MACD_SIG)
 
 - Binance Futures API 연동 (ccxt async)
 - 10분봉 캔들 데이터 수집 및 유지
-- EMA(250), EMA(1575) 계산 (ADX/RSI 불필요)
+- EMA(250), EMA(1575) 계산
+- V16 Balanced Sizing용 지표 (검증된 backtest와 동일 슬롯 매핑):
+    [0]ADX(20) Wilder, [1]RSI(10) Wilder,
+    [9]MACD_SIG(12,26,9), [11]LR_slope(20) 정규화
+  → 이 4개로 0~100 점수 계산 → FULL 1.5x / HALF 1.0x / LOW 0.5x
 - WebSocket 실시간 가격 업데이트
 """
 
@@ -33,6 +38,14 @@ CANDLE_LIMIT = 4000  # CSV 없을 때 API에서 로드할 5분봉 수
 CSV_PATH = 'eth_usdt_5m_2020_TO_NOW_merged.csv'  # 기존 merged CSV (호환용)
 CSV_SAVE_INTERVAL = 300  # CSV 저장 주기 (초) — 5분
 
+# V16 Balanced Sizing 지표 파라미터 (backtest engine_data.py와 동일)
+ADX_PERIOD = 20       # Wilder's smoothing
+RSI_PERIOD = 10       # Wilder's smoothing
+LR_PERIOD = 20        # Linear regression slope
+MACD_FAST = 12
+MACD_SLOW = 26
+MACD_SIGNAL = 9
+
 
 class DataCollector:
     """Binance Futures 데이터 수집 및 지표 계산"""
@@ -55,6 +68,12 @@ class DataCollector:
         self.fast_ma: np.ndarray = None
         self.slow_ma: np.ndarray = None
 
+        # V16 Balanced Sizing용 지표 (10분봉)
+        self.adx: np.ndarray = None         # ADX(20)
+        self.rsi: np.ndarray = None         # RSI(10)
+        self.lr_slope: np.ndarray = None    # LR slope(20) 가격 대비 %
+        self.mom: np.ndarray = None         # MACD signal line (momentum)
+
         self.current_price: float = 0.0
         self.current_high: float = 0.0
         self.current_low: float = 0.0
@@ -64,6 +83,7 @@ class DataCollector:
         self._ws_running = False
         self._ws = None
         self._last_csv_save: float = 0.0
+        self._last_csv_cleanup: str = ''  # 마지막 cleanup 실행 월 (YYYY-MM)
 
     async def initialize(self):
         logger.info("초기 캔들 데이터 로딩...")
@@ -71,6 +91,8 @@ class DataCollector:
         self._calculate_indicators()
         logger.info(f"데이터 초기화 완료: {len(self.df)}봉, "
                     f"EMA250={self.fast_ma[-1]:.2f}, EMA1575={self.slow_ma[-1]:.2f}")
+        logger.info(f"V16 Sizing 지표: ADX={self.adx[-1]:.1f}, RSI={self.rsi[-1]:.1f}, "
+                    f"LR={self.lr_slope[-1]:+.3f}%, MOM={self.mom[-1]:+.2f}")
 
     async def _load_historical_candles(self):
         """5분봉 로드 → 10분봉 리샘플링
@@ -98,6 +120,14 @@ class DataCollector:
                     df_csv.index = df_csv.index.tz_localize('UTC')
                 df_csv = df_csv[~df_csv.index.duplicated(keep='last')]
                 df_csv.sort_index(inplace=True)
+
+                # 최근 6개월만 메모리 로드 (AWS t3.micro 메모리 절약)
+                # EMA(1575) warmup은 10분봉 1600봉 ≈ 11일로 6개월은 충분
+                cutoff_6m = pd.Timestamp.now(tz='UTC') - pd.Timedelta(days=180)
+                before_cnt = len(df_csv)
+                df_csv = df_csv[df_csv.index >= cutoff_6m]
+                logger.info(f"  6개월 필터: {before_cnt:,} → {len(df_csv):,}봉")
+
                 logger.info(f"  CSV 총: {len(df_csv):,}봉 "
                             f"({df_csv.index[0]} ~ {df_csv.index[-1]})")
 
@@ -210,6 +240,52 @@ class DataCollector:
         combined.sort_index(inplace=True)
         return combined
 
+    def cleanup_old_csv(self):
+        """매월 1일: 6개월 이전 5분봉 CSV 데이터 삭제/축소"""
+        now = datetime.now(timezone.utc)
+        if now.day != 1:
+            return
+        month_key = now.strftime('%Y-%m')
+        if self._last_csv_cleanup == month_key:
+            return  # 이번 달 이미 실행됨
+
+        cutoff = pd.Timestamp.now(tz='UTC') - pd.Timedelta(days=180)
+        files = sorted(glob.glob('eth_5m_*.csv'))
+        total_removed = 0
+        files_deleted = 0
+        files_shrunk = 0
+
+        for f in files:
+            try:
+                df = pd.read_csv(f, parse_dates=['timestamp'], index_col='timestamp')
+                if df.index.tz is None:
+                    df.index = df.index.tz_localize('UTC')
+                before = len(df)
+                df_new = df[df.index >= cutoff]
+                after = len(df_new)
+
+                if after == 0:
+                    os.remove(f)
+                    files_deleted += 1
+                    total_removed += before
+                    logger.info(f"  CSV 삭제: {f} ({before:,}봉 전체 6개월 이전)")
+                elif after < before:
+                    df_new = df_new.copy()
+                    df_new.index = df_new.index.tz_localize(None)
+                    df_new.to_csv(f)
+                    files_shrunk += 1
+                    total_removed += (before - after)
+                    logger.info(f"  CSV 축소: {f} ({before:,} → {after:,}봉)")
+            except Exception as e:
+                logger.error(f"  CSV cleanup 실패: {f} — {e}")
+
+        self._last_csv_cleanup = month_key
+        if total_removed > 0:
+            logger.info(f"[CSV Cleanup {month_key}] 삭제 {files_deleted}개, 축소 {files_shrunk}개, "
+                        f"총 {total_removed:,}봉 제거")
+        else:
+            logger.info(f"[CSV Cleanup {month_key}] 제거 대상 없음 (모두 6개월 이내)")
+
     def _save_candles(self, full=False):
         """5분봉 데이터를 연도별 CSV로 분할 저장
         full=True: 전체 연도 저장 (초기 로드 시)
@@ -238,9 +314,11 @@ class DataCollector:
 
     def _calculate_indicators(self):
         close_s = self.df['close']
+        high_s = self.df['high']
+        low_s = self.df['low']
         self.close = close_s.values.astype(np.float64)
-        self.high = self.df['high'].values.astype(np.float64)
-        self.low = self.df['low'].values.astype(np.float64)
+        self.high = high_s.values.astype(np.float64)
+        self.low = low_s.values.astype(np.float64)
 
         # 전략A: EMA(250)/EMA(1575) on 10분봉
         self.fast_ma = close_s.ewm(span=FAST_MA_PERIOD, adjust=False).mean().values.astype(np.float64)
@@ -266,6 +344,55 @@ class DataCollector:
             while j < len(df15) - 1 and ts15[j + 1] <= ts10[i]:
                 j += 1
             self.b_ema100_15m[i] = ema100_vals[j]
+
+        # V16 Balanced: Confidence Score용 4개 지표 (검증된 backtest와 동일 계산)
+        self._calc_score_indicators(close_s, high_s, low_s)
+
+    def _calc_score_indicators(self, close_s: pd.Series, high_s: pd.Series, low_s: pd.Series):
+        """V16 Balanced Sizing용 4개 지표 — engine_data.py와 완벽 동일 계산"""
+        # ── ADX(20) — Wilder's smoothing (alpha=1/20) ──
+        h = high_s; l = low_s; c = close_s
+        a = 1.0 / ADX_PERIOD
+        tr = pd.concat([h - l, (h - c.shift(1)).abs(), (l - c.shift(1)).abs()], axis=1).max(axis=1)
+        up = h - h.shift(1)
+        dn = l.shift(1) - l
+        pdm = pd.Series(np.where((up > dn) & (up > 0), up, 0.0), index=c.index)
+        mdm = pd.Series(np.where((dn > up) & (dn > 0), dn, 0.0), index=c.index)
+        atr = tr.ewm(alpha=a, min_periods=ADX_PERIOD, adjust=False).mean()
+        pdi = 100 * pdm.ewm(alpha=a, min_periods=ADX_PERIOD, adjust=False).mean() / atr
+        mdi = 100 * mdm.ewm(alpha=a, min_periods=ADX_PERIOD, adjust=False).mean() / atr
+        dx = 100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, 1e-10)
+        self.adx = dx.ewm(alpha=a, min_periods=ADX_PERIOD, adjust=False).mean().fillna(0).values.astype(np.float64)
+
+        # ── RSI(10) — Wilder's smoothing (alpha=1/10) ──
+        d = c.diff()
+        g = d.where(d > 0, 0.0)
+        lo = (-d).where(d < 0, 0.0)
+        ar = 1.0 / RSI_PERIOD
+        ag = g.ewm(alpha=ar, min_periods=RSI_PERIOD, adjust=False).mean()
+        al = lo.ewm(alpha=ar, min_periods=RSI_PERIOD, adjust=False).mean()
+        self.rsi = (100 - 100 / (1 + ag / al.replace(0, 1e-10))).fillna(50).values.astype(np.float64)
+
+        # ── LR slope(20) — 가격 대비 % 정규화 ──
+        n = len(c)
+        lr_arr = np.zeros(n, dtype=np.float64)
+        x = np.arange(LR_PERIOD, dtype=np.float64)
+        x_mean = x.mean()
+        x_var = float(np.sum((x - x_mean) ** 2))
+        close_arr = self.close
+        for i in range(LR_PERIOD - 1, n):
+            y = close_arr[i - LR_PERIOD + 1:i + 1]
+            y_mean = y.mean()
+            cov = float(np.sum((x - x_mean) * (y - y_mean)))
+            slope = cov / x_var if x_var != 0 else 0.0
+            lr_arr[i] = slope / close_arr[i] * 100.0 if close_arr[i] != 0 else 0.0
+        self.lr_slope = lr_arr
+
+        # ── MACD signal line (12,26,9) — "momentum" 점수용 (검증된 backtest와 동일 슬롯 [9]) ──
+        ema_fast = c.ewm(span=MACD_FAST, adjust=False).mean()
+        ema_slow = c.ewm(span=MACD_SLOW, adjust=False).mean()
+        macd_line = ema_fast - ema_slow
+        self.mom = macd_line.ewm(span=MACD_SIGNAL, adjust=False).mean().fillna(0).values.astype(np.float64)
 
     async def update_candles(self):
         """5분봉 최신 가져와서 10분봉 재생성"""
@@ -398,6 +525,11 @@ class DataCollector:
             'b_ema100_15m_prev': self.b_ema100_15m[i - 1],
             'b_ema9_prev2': self.b_ema9[i - 2] if i > 1 else None,
             'b_ema100_15m_prev2': self.b_ema100_15m[i - 2] if i > 1 else None,
+            # V16 Balanced: Confidence Score용 (전략A 진입 시점 sizing)
+            'adx': float(self.adx[i]) if self.adx is not None else 0.0,
+            'rsi': float(self.rsi[i]) if self.rsi is not None else 50.0,
+            'lr_slope': float(self.lr_slope[i]) if self.lr_slope is not None else 0.0,
+            'mom': float(self.mom[i]) if self.mom is not None else 0.0,
             'timestamp': str(self.df.index[i]),
             'realtime_price': self.current_price,
             'realtime_high': self.current_high,

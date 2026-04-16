@@ -1,6 +1,6 @@
 """
 ETH/USDT 선물 자동매매 - 핵심 트레이딩 로직
-V8: EMA(250)/EMA(1575) 10m Trend System — 계정 20% 복리 마진
+V8 + V16 Balanced Sizing: EMA(250)/EMA(1575) 10m Trend + Confidence Score Sizing
 
 ═══════════════════════════════════════════════════
   가격 기준 (V8 기획서 정확 구현)
@@ -22,16 +22,31 @@ V8: EMA(250)/EMA(1575) 10m Trend System — 계정 20% 복리 마진
   봉마감 체크: _check_exit() — 10분봉 완성 시 전체 로직
 
   필터: ALL OFF (ADX/RSI/EMA Gap 없음)
-  마진: 계정 잔액의 20% × 레버리지 10x
+  마진: 계정 잔액의 20% × 레버리지 10x × mult(0.5/1.0/1.5)
   Trade Statistics: state/trade_stats.json (영구 저장)
-═══════════════════════════════════════════════════
 
-- EMA 크로스 감지 및 감시 메커니즘
-- 진입/청산 조건 판단
-- SL/TSL/REV 상태 머신
-- 동일방향 재진입 스킵
-- 필터 ALL OFF (ADX/RSI/EMA Gap 없음)
-- Trade Statistics 영구 저장 (state/trade_stats.json)
+═══════════════════════════════════════════════════
+  V16 Balanced Confidence Score Sizing (전략A 전용)
+═══════════════════════════════════════════════════
+  점수 0~100: ADX + RSI + LR_slope + MACD_sig + base
+    base 25
+    ADX>=30 +25 / >=25 +18 / >=22 +12
+    RSI 40~60 +20 / 35~65 +15 / 30~65 +10
+    |LR_slope|<0.3 +15 / <0.5 +10
+    MOM(MACD_sig)>=1.5 +15 / >=1.2 +10
+
+  Tier:
+    FULL (score>=70) → mult 1.5 (margin 30%)
+    HALF (50<=score<70) → mult 1.0 (margin 20%)
+    LOW  (score<50) → mult 0.5 (margin 10%)
+
+  검증 결과 (2020~2026-04 njit 백테스트):
+    V8 baseline: $626k (+12,432%) PF 2.56 MDD 38.3%
+    V16 Balanced: +164% 개선 (2023+ 구간 검증: $126k → $333k)
+    FULL PF 3.71 / HALF / LOW 0% WR (손실 회피 효과 검증)
+
+  전략B는 sizing 미적용 (기존 20% 마진 그대로)
+═══════════════════════════════════════════════════
 """
 
 import json
@@ -69,6 +84,63 @@ B_TA_PCT = 7.0               # TSL 활성화 +7% (최적화 결과)
 B_TSL_PCT = 0.2              # 고점 대비 -0.2% 트레일 (최적화 결과)
 B_GAP_MIN = 0.5              # EMA 갭 ≥ 0.5% 필터
 # REV 없음 — SL/TSL만 사용
+# 전략B는 V16 Sizing 미적용 (mult=1.0 고정)
+
+# ═══════════════════════════════════════════════════════════
+# V16 Balanced Confidence Score Sizing (전략A 전용)
+# ═══════════════════════════════════════════════════════════
+SCORE_FULL = 70.0            # 이 점수 이상 → FULL 티어
+SCORE_HALF = 50.0            # 이 점수 이상 → HALF 티어
+MULT_FULL  = 1.5             # FULL: 마진 1.5배 (30% = 20% × 1.5)
+MULT_HALF  = 1.0             # HALF: 마진 1.0배 (20%, 기본)
+MULT_LOW   = 0.5             # LOW:  마진 0.5배 (10% = 20% × 0.5)
+
+
+def calc_confidence_score(adx: float, rsi: float, lr_slope: float, mom: float) -> float:
+    """V16 Balanced Confidence Score (0~100)
+    검증된 njit 백테스트(v19)와 완벽 동일 공식.
+
+    Args:
+      adx:      ADX(20) 값 (Wilder)
+      rsi:      RSI(10) 값 (Wilder)
+      lr_slope: 선형회귀 기울기 (가격 대비 %)
+      mom:      MACD signal line 값 (12,26,9) — backtest 슬롯[9] 일치
+
+    Returns:
+      점수 0~100 (높을수록 신뢰도 높음)
+    """
+    import math
+    score = 25.0  # base
+
+    if not math.isnan(adx):
+        if adx >= 30:   score += 25
+        elif adx >= 25: score += 18
+        elif adx >= 22: score += 12
+
+    if not math.isnan(rsi):
+        if 40 <= rsi <= 60:   score += 20
+        elif 35 <= rsi <= 65: score += 15
+        elif 30 <= rsi <= 65: score += 10
+
+    abs_slope = abs(lr_slope) if not math.isnan(lr_slope) else 0.0
+    if abs_slope < 0.3:   score += 15
+    elif abs_slope < 0.5: score += 10
+
+    mv = mom if not math.isnan(mom) else 1.0
+    if mv >= 1.5:   score += 15
+    elif mv >= 1.2: score += 10
+
+    return score
+
+
+def get_tier_and_mult(score: float) -> tuple[str, float]:
+    """점수 → (tier 문자열, margin multiplier)"""
+    if score >= SCORE_FULL:
+        return ('FULL', MULT_FULL)
+    elif score >= SCORE_HALF:
+        return ('HALF', MULT_HALF)
+    else:
+        return ('LOW', MULT_LOW)
 
 
 class ExitType(IntEnum):
@@ -98,6 +170,10 @@ class PositionState:
     entry_bar: int = 0
     peak_roi: float = 0.0
     entry_mode: str = 'A'     # 'A' = 전략A(추세), 'B' = 전략B(보완)
+    # V16 Balanced Sizing (전략A만 사용, B는 score=0 tier='N/A' mult=1.0)
+    score: float = 0.0
+    mult: float = 1.0
+    tier: str = 'N/A'
 
 
 @dataclass
@@ -131,6 +207,10 @@ class Signal:
     exit_price: float = 0.0
     reason: str = ''
     entry_mode: str = 'A'     # 'A' or 'B'
+    # V16 Balanced Sizing (전략A 진입 시 채워짐, B는 기본값)
+    score: float = 0.0
+    mult: float = 1.0
+    tier: str = 'N/A'
 
 
 class TradingCore:
@@ -366,13 +446,25 @@ class TradingCore:
         if capital < 500:
             return Signal(action='NONE', reason='잔액 부족')
 
-        # ═══ 진입! (필터 없음) ═══
+        # ═══ 진입! (필터 없음, V16 Balanced Sizing 적용) ═══
         direction = self.watch.direction
         dir_str = "LONG" if direction == 1 else "SHORT"
-        logger.info(f"[SIGNAL-A] {dir_str} 진입 신호!")
+
+        # V16 Confidence Score (전략A만 sizing 적용)
+        adx_v = bar.get('adx', 0.0)
+        rsi_v = bar.get('rsi', 50.0)
+        lr_v  = bar.get('lr_slope', 0.0)
+        mom_v = bar.get('mom', 0.0)
+        score = calc_confidence_score(adx_v, rsi_v, lr_v, mom_v)
+        tier, mult = get_tier_and_mult(score)
+
+        logger.info(f"[SIGNAL-A] {dir_str} 진입 신호! "
+                    f"Score={score:.1f} → {tier} (mult {mult:.1f}x) | "
+                    f"ADX={adx_v:.1f} RSI={rsi_v:.1f} LR={lr_v:+.3f}% MOM={mom_v:+.2f}")
 
         return Signal(action='ENTER', direction=direction,
-                      reason=f"{dir_str} 진입 [A] (EMA cross)", entry_mode='A')
+                      reason=f"{dir_str} 진입 [A] (EMA cross, Score={score:.0f}/{tier} {mult:.1f}x)",
+                      entry_mode='A', score=score, mult=mult, tier=tier)
 
     # ═══════════════════════════════════════════════════════════
     # 전략B 진입 체크 — EMA(9) 10m × EMA(100) 15m + 갭 필터
@@ -424,9 +516,28 @@ class TradingCore:
     # 포지션 관리
     # ═══════════════════════════════════════════════════════════
     def open_position(self, direction: int, entry_price: float,
-                      capital: float, bar_index: int, entry_mode: str = 'A') -> dict:
+                      capital: float, bar_index: int, entry_mode: str = 'A',
+                      score: float = 0.0, mult: float = 1.0, tier: str = 'N/A') -> dict:
+        """포지션 오픈
+        V16 Balanced Sizing: 전략A는 (score/tier/mult) 적용, 전략B는 mult=1.0 고정
+        """
         effective_capital = min(capital, MAX_CAPITAL)
-        margin = effective_capital * MARGIN_PCT
+
+        # V16: 전략A만 sizing, B는 mult 무시
+        if entry_mode == 'A':
+            effective_mult = mult
+        else:
+            effective_mult = 1.0
+            tier = 'N/A'
+            score = 0.0
+
+        margin = effective_capital * MARGIN_PCT * effective_mult
+
+        # 안전장치: 마진이 현재 잔액의 95%를 넘지 않도록
+        if margin > capital * 0.95:
+            margin = capital * 0.95
+            logger.warning(f"[{entry_mode}] 마진 캡 발동: ${margin:,.0f} (잔액의 95%)")
+
         position_size = margin * LEVERAGE
 
         # 전략별 SL
@@ -440,12 +551,14 @@ class TradingCore:
             tsl_active=False, track_high=entry_price, track_low=entry_price,
             entry_time=time.time(), entry_bar=bar_index, peak_roi=0.0,
             entry_mode=entry_mode,
+            score=score, mult=effective_mult, tier=tier,
         )
         self.watch.direction = 0
 
         dir_str = "LONG" if direction == 1 else "SHORT"
+        sizing_str = f"Score={score:.0f}/{tier} mult={effective_mult:.1f}x" if entry_mode == 'A' else "mult=1.0x"
         logger.info(f"포지션 오픈 [{entry_mode}]: {dir_str} @{entry_price:.2f}, "
-                    f"크기=${position_size:,.0f}, 마진=${margin:,.0f}, SL={self.position.sl_price:.2f}")
+                    f"크기=${position_size:,.0f}, 마진=${margin:,.0f}, SL={self.position.sl_price:.2f}, {sizing_str}")
 
         return {
             'margin': margin,
@@ -453,6 +566,9 @@ class TradingCore:
             'sl_price': self.position.sl_price,
             'entry_fee': position_size * FEE_RATE,
             'entry_mode': entry_mode,
+            'score': score,
+            'mult': effective_mult,
+            'tier': tier,
         }
 
     def close_position(self, exit_price: float, exit_type: str,
@@ -506,6 +622,7 @@ class TradingCore:
             tsl_active=False, track_high=entry_price, track_low=entry_price,
             entry_time=time.time(), entry_bar=bar_index, peak_roi=0.0,
             entry_mode='A',
+            score=0.0, mult=1.0, tier='MANUAL',
         )
 
     # ─── 상태 저장/복원 ───
@@ -531,6 +648,7 @@ class TradingCore:
             'track_high': pos.track_high, 'track_low': pos.track_low,
             'entry_time': pos.entry_time, 'entry_bar': pos.entry_bar,
             'peak_roi': pos.peak_roi, 'entry_mode': pos.entry_mode,
+            'score': pos.score, 'mult': pos.mult, 'tier': pos.tier,
             'last_exit_dir': self.last_exit_dir, 'saved_at': time.time(),
         }
         try:
@@ -572,6 +690,9 @@ class TradingCore:
                 entry_time=state['entry_time'], entry_bar=state.get('entry_bar', 0),
                 peak_roi=state.get('peak_roi', 0),
                 entry_mode=state.get('entry_mode', 'A'),
+                score=state.get('score', 0.0),
+                mult=state.get('mult', 1.0),
+                tier=state.get('tier', 'N/A'),
             )
             self.last_exit_dir = state.get('last_exit_dir', 0)
             return True
@@ -612,6 +733,8 @@ class TradingCore:
             'sl_price': pos.sl_price, 'tsl_active': pos.tsl_active,
             'track_high': pos.track_high, 'track_low': pos.track_low,
             'peak_roi': pos.peak_roi,
+            'entry_mode': pos.entry_mode,
+            'score': pos.score, 'mult': pos.mult, 'tier': pos.tier,
             'watching': self.watch.direction,
             'watching_str': 'LONG' if self.watch.direction == 1 else 'SHORT' if self.watch.direction == -1 else 'NONE',
             'total_trades': self.total_trades,

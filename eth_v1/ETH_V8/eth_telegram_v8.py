@@ -1,6 +1,7 @@
 """
 ETH/USDT 선물 자동매매 - 텔레그램 알림 + 명령어
 V8: EMA(250)/EMA(1575) 10m Trend System
+V16 Balanced Sizing: 전략A에 Confidence Score 기반 Tier 사이징 (FULL 1.5x / HALF 1.0x / LOW 0.5x)
 """
 
 import asyncio
@@ -149,11 +150,12 @@ class TelegramNotifier:
             logger.error(f"getUpdates 오류: {e}")
 
     async def notify_start(self, balance: float):
-        msg = (f"<b>[ETH V8] System Started</b>\n"
+        msg = (f"<b>[ETH V8 + V16 Balanced] System Started</b>\n"
                f"Strategy: EMA(250)/EMA(1575) 10m\n"
                f"Balance: ${balance:,.2f}\n"
-               f"Leverage: 10x | Margin: 20% | SL: 2%\n"
+               f"Leverage: 10x | Margin 20% | SL 2%\n"
                f"A: SL2%/TA54%/TSL2.75% | B: SL2.5%/TA5%/TSL0.3%\n"
+               f"Sizing (A only): FULL 1.5x / HALF 1.0x / LOW 0.5x\n"
                f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         if self.enabled and self._session:
             await self._send(msg)
@@ -166,9 +168,15 @@ class TelegramNotifier:
             await self._send(msg)
 
     def notify_entry(self, direction: int, entry_price: float, position_size: float,
-                     sl_price: float, balance: float, bar_info: dict = None):
+                     sl_price: float, balance: float, bar_info: dict = None,
+                     entry_mode: str = 'A', score: float = 0.0,
+                     tier: str = 'N/A', mult: float = 1.0):
         dir_str = "LONG" if direction == 1 else "SHORT"
-        msg = (f"<b>[ETH V8] {dir_str} Entry</b>\n"
+        # 전략A: V16 Balanced 사이징 정보 표시 / B: 기본
+        sizing_line = (f"Sizing: {tier} | Score: {score:.0f} | Mult: {mult:.1f}x\n"
+                       if entry_mode == 'A' else "")
+        msg = (f"<b>[ETH V8] {dir_str} Entry [{entry_mode}]</b>\n"
+               f"{sizing_line}"
                f"Price: ${entry_price:,.2f} | Size: ${position_size:,.0f}\n"
                f"SL: ${sl_price:,.2f} (-2.0%)\n"
                f"Balance: ${balance:,.2f}\n"
