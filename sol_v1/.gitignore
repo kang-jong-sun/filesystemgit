@@ -1,0 +1,32 @@
+# Secrets
+.env
+*.pem
+
+# Generated data
+logs/
+cache/
+state/
+__pycache__/
+*.pyc
+*.pyo
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Local venv (AWS re-creates its own)
+sol_env/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Test artifacts
+test_*.py.bak
