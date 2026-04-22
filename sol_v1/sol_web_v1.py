@@ -78,10 +78,26 @@ tr:hover{background:rgba(255,255,255,0.02)}
 .bar{background:#0f172a;height:6px;border-radius:3px;margin-top:5px;overflow:hidden}
 .bar-fill{height:100%;background:linear-gradient(90deg,#22c55e,#16a34a)}
 .bar-red{background:linear-gradient(90deg,#ef4444,#b91c1c)}
-.logout{float:right;color:#64748b;text-decoration:none;font-size:12px}
+.logout{color:#64748b;text-decoration:none;font-size:13px;padding:6px 12px;border-radius:6px}
+.logout:hover{background:#1e293b;color:#ef4444}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #2d3748}
+.brand{color:#4ade80;font-size:22px;font-weight:bold}
+.nav{display:flex;gap:4px}
+.nav a{padding:8px 16px;color:#94a3b8;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;transition:all 0.15s}
+.nav a:hover{background:#1e293b;color:#e0e0e0}
+.nav a.active-tab{background:#1e293b;color:#4ade80;box-shadow:inset 0 -2px 0 #4ade80}
+@media (max-width:640px){.topbar{flex-wrap:wrap;gap:10px}.nav{width:100%;overflow-x:auto}.brand{font-size:18px}}
 </style></head>
 <body>
-<h1>🪙 SOL V1 Dashboard <a href="/logout" class="logout">[로그아웃]</a></h1>
+<div class="topbar">
+  <div class="brand">🪙 SOL V1</div>
+  <div class="nav">
+    <a href="/" class="active-tab">Dashboard</a>
+    <a href="/trades">Trades</a>
+    <a href="/balance">Balance</a>
+    <a href="/logout" class="logout">Logout</a>
+  </div>
+</div>
 <div style="color:#64748b;font-size:11px;margin-bottom:20px">
   V12:Mass 75:25 Mutex + Skip2@4loss + 12.5% Compound |
   <span class="status-dot %%DOT_CLASS%%"></span>%%STATUS_TEXT%% |
@@ -151,6 +167,160 @@ tr:hover{background:rgba(255,255,255,0.02)}
     <tr><th>시간</th><th>Mode</th><th>Dir</th><th>진입</th><th>청산</th><th>Exit</th><th>PnL</th><th>ROI</th></tr>
     %%TRADES_ROWS%%
   </table>
+</div>
+</body></html>"""
+
+
+HTML_TRADES = """<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><title>SOL V1 Trades</title>
+<meta http-equiv="refresh" content="10">
+<style>
+*{box-sizing:border-box}
+body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e0e0;margin:0;padding:20px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #2d3748}
+.brand{color:#4ade80;font-size:22px;font-weight:bold}
+.nav{display:flex;gap:4px}
+.nav a{padding:8px 16px;color:#94a3b8;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;transition:all 0.15s}
+.nav a:hover{background:#1e293b;color:#e0e0e0}
+.nav a.active-tab{background:#1e293b;color:#4ade80;box-shadow:inset 0 -2px 0 #4ade80}
+.logout{color:#64748b;padding:6px 12px;border-radius:6px;text-decoration:none;font-size:13px}
+.card{background:#1a1f2e;padding:16px;border-radius:10px;border:1px solid #2d3748;margin-bottom:16px}
+.card h3{margin:0 0 12px;color:#94a3b8;font-size:13px;text-transform:uppercase;letter-spacing:0.5px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.summary .v{font-size:20px;font-weight:bold}
+.summary .sub{font-size:11px;color:#64748b;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#1e293b;padding:10px;text-align:left;color:#94a3b8;font-weight:600;border-bottom:2px solid #2d3748;position:sticky;top:0}
+td{padding:10px;border-bottom:1px solid #1f2937}
+tr:hover{background:rgba(255,255,255,0.02)}
+.win{color:#22c55e}
+.lose{color:#ef4444}
+.warn{color:#eab308}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-v12{background:#1e40af;color:#dbeafe}
+.badge-mass{background:#7e22ce;color:#f3e8ff}
+.badge-manual{background:#92400e;color:#fed7aa}
+.badge-pyramid{background:#065f46;color:#a7f3d0}
+.badge-sl{background:#7f1d1d;color:#fecaca}
+.badge-tsl{background:#365314;color:#d9f99d}
+.badge-rev{background:#78350f;color:#fde68a}
+.badge-ext{background:#374151;color:#d1d5db}
+.pagination{display:flex;justify-content:center;gap:8px;margin-top:16px}
+.pagination a,.pagination span{padding:6px 12px;color:#94a3b8;text-decoration:none;background:#1e293b;border-radius:6px;font-size:13px}
+.pagination a:hover{background:#2d3748}
+.pagination .current{background:#4ade80;color:#0a0e1a;font-weight:bold}
+.empty{text-align:center;color:#64748b;padding:40px}
+@media (max-width:640px){.topbar{flex-wrap:wrap}.nav{width:100%;overflow-x:auto}table{font-size:11px}th,td{padding:6px}}
+</style></head>
+<body>
+<div class="topbar">
+  <div class="brand">🪙 SOL V1</div>
+  <div class="nav">
+    <a href="/">Dashboard</a>
+    <a href="/trades" class="active-tab">Trades</a>
+    <a href="/balance">Balance</a>
+    <a href="/logout" class="logout">Logout</a>
+  </div>
+</div>
+
+<div class="summary">
+  <div class="card"><h3>Total Trades</h3><div class="v">%%TOTAL%%</div><div class="sub">Wins %%WINS%% / Losses %%LOSSES%%</div></div>
+  <div class="card"><h3>Win Rate</h3><div class="v %%WR_CLASS%%">%%WR%%%</div><div class="sub">PF %%PF%%</div></div>
+  <div class="card"><h3>Total PnL</h3><div class="v %%PNL_CLASS%%">$%%TOTAL_PNL%%</div><div class="sub">GP $%%GP%% / GL $%%GL%%</div></div>
+  <div class="card"><h3>Exit Types</h3><div class="v" style="font-size:14px">SL %%SL%% · TSL %%TSL%% · REV %%REV%% · EXT %%EXT%%</div></div>
+</div>
+
+<div class="card">
+  <h3>📋 거래 내역 (Page %%PAGE%%)</h3>
+  <table>
+    <tr><th>#</th><th>Time</th><th>Source</th><th>Mode</th><th>Dir</th><th>Entry</th><th>Exit</th><th>Type</th><th>PnL</th><th>ROI</th><th>Hold</th></tr>
+    %%TRADE_ROWS%%
+  </table>
+  <div class="pagination">%%PAGINATION%%</div>
+</div>
+</body></html>"""
+
+
+HTML_BALANCE = """<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><title>SOL V1 Balance</title>
+<meta http-equiv="refresh" content="15">
+<style>
+*{box-sizing:border-box}
+body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e0e0;margin:0;padding:20px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #2d3748}
+.brand{color:#4ade80;font-size:22px;font-weight:bold}
+.nav{display:flex;gap:4px}
+.nav a{padding:8px 16px;color:#94a3b8;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;transition:all 0.15s}
+.nav a:hover{background:#1e293b;color:#e0e0e0}
+.nav a.active-tab{background:#1e293b;color:#4ade80;box-shadow:inset 0 -2px 0 #4ade80}
+.logout{color:#64748b;padding:6px 12px;border-radius:6px;text-decoration:none;font-size:13px}
+.card{background:#1a1f2e;padding:16px;border-radius:10px;border:1px solid #2d3748;margin-bottom:16px}
+.card h3{margin:0 0 12px;color:#94a3b8;font-size:13px;text-transform:uppercase;letter-spacing:0.5px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:20px}
+.summary .v{font-size:24px;font-weight:bold}
+.summary .sub{font-size:11px;color:#64748b;margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#1e293b;padding:10px;text-align:left;color:#94a3b8;font-weight:600;border-bottom:2px solid #2d3748}
+td{padding:10px;border-bottom:1px solid #1f2937}
+tr:hover{background:rgba(255,255,255,0.02)}
+.win{color:#22c55e}
+.lose{color:#ef4444}
+.warn{color:#eab308}
+.big{font-size:28px;font-weight:bold}
+.meta{color:#64748b;font-size:12px;margin-top:6px}
+.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px}
+.info-grid .item{padding:12px;background:#0f172a;border-radius:6px}
+.info-grid .label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px}
+.info-grid .value{font-size:18px;font-weight:bold;margin-top:4px}
+@media (max-width:640px){.topbar{flex-wrap:wrap}.nav{width:100%;overflow-x:auto}}
+</style></head>
+<body>
+<div class="topbar">
+  <div class="brand">🪙 SOL V1</div>
+  <div class="nav">
+    <a href="/">Dashboard</a>
+    <a href="/trades">Trades</a>
+    <a href="/balance" class="active-tab">Balance</a>
+    <a href="/logout" class="logout">Logout</a>
+  </div>
+</div>
+
+<div class="summary">
+  <div class="card"><h3>💰 Total Balance (공용 계정)</h3>
+    <div class="big">$%%BALANCE%%</div>
+    <div class="meta">Available: $%%AVAILABLE%% | Peak: $%%PEAK%%</div>
+  </div>
+  <div class="card"><h3>📊 SOL 누적 PnL (봇 시작 이후)</h3>
+    <div class="big %%CUM_CLASS%%">$%%CUMULATIVE%%</div>
+    <div class="meta">ETH 영향 배제한 순수 SOL 성과</div>
+  </div>
+  <div class="card"><h3>📅 오늘 (UTC 기준)</h3>
+    <div class="big %%TODAY_CLASS%%">$%%TODAY_PNL%%</div>
+    <div class="meta">Trades %%TODAY_TRADES%% · Start $%%DAY_START%%</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>🎛 봇 운영 정보</h3>
+  <div class="info-grid">
+    <div class="item"><div class="label">Leverage</div><div class="value">%%LEVERAGE%%x</div></div>
+    <div class="item"><div class="label">Max Capital Cap</div><div class="value">$%%MAX_CAP%%</div></div>
+    <div class="item"><div class="label">Compound %</div><div class="value">%%COMPOUND%%%</div></div>
+    <div class="item"><div class="label">Daily Loss Limit</div><div class="value">%%DAILY_LIMIT%%%</div></div>
+    <div class="item"><div class="label">Consec Losses</div><div class="value %%CONSEC_CLASS%%">%%CONSEC%%/4</div></div>
+    <div class="item"><div class="label">Skip Remaining</div><div class="value">%%SKIP%%</div></div>
+    <div class="item"><div class="label">Max Drawdown</div><div class="value %%MDD_CLASS%%">%%MDD%%%</div></div>
+    <div class="item"><div class="label">Last Exit Dir</div><div class="value">%%LAST_EXIT%%</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>📆 일일 성과 요약 (최근 %%DAILY_COUNT%%일)</h3>
+  <table>
+    <tr><th>Date</th><th>Start Balance</th><th>End Balance</th><th>Change %</th><th>Trades</th><th>W/L</th><th>SOL PnL</th><th>ConsecLoss</th></tr>
+    %%DAILY_ROWS%%
+  </table>
+  <div class="meta" style="margin-top:10px">※ daily_summary.log 파일에서 읽어옵니다</div>
 </div>
 </body></html>"""
 
@@ -373,6 +543,232 @@ class WebDashboard:
             html = html.replace(k, str(v))
         return html
 
+    async def _fetch_trades_paginated(self, page: int, per_page: int = 30):
+        """페이지네이션된 거래 내역"""
+        try:
+            offset = (page - 1) * per_page
+            async with aiosqlite.connect(DB_PATH) as db:
+                # 총 개수
+                cur = await db.execute("SELECT COUNT(*) FROM trades")
+                total = (await cur.fetchone())[0]
+                # 페이지 데이터
+                cur = await db.execute(
+                    "SELECT timestamp, source, entry_mode, direction, entry_price, exit_price, "
+                    "exit_type, pnl, roi_pct, hold_time FROM trades "
+                    "ORDER BY id DESC LIMIT ? OFFSET ?", (per_page, offset))
+                rows = await cur.fetchall()
+                return total, rows
+        except Exception as e:
+            logger.error(f"trades fetch: {e}")
+            return 0, []
+
+    async def _render_trades(self, page: int = 1) -> str:
+        import math as _m
+        core = self.bot.core
+        per_page = 30
+        total_trades_db, rows = await self._fetch_trades_paginated(page, per_page)
+        total_pages = max(1, _m.ceil(total_trades_db / per_page))
+        page = max(1, min(page, total_pages))
+
+        # 통계 요약
+        total_pnl = core.gross_profit - core.gross_loss
+        pnl_class = 'win' if total_pnl > 0 else ('lose' if total_pnl < 0 else '')
+        wr = core.win_rate
+        wr_class = 'win' if wr >= 50 else ('warn' if wr >= 30 else 'lose')
+        pf = core.profit_factor if core.profit_factor != float('inf') else 999
+        pf_str = f"{pf:.2f}" if pf < 999 else "∞"
+
+        # Exit Types counter (EXT = 외부 청산)
+        ext_count = 0
+        try:
+            async with aiosqlite.connect(DB_PATH) as db:
+                cur = await db.execute("SELECT COUNT(*) FROM trades WHERE exit_type='EXT'")
+                ext_count = (await cur.fetchone())[0]
+        except Exception:
+            pass
+
+        # 거래 row 생성
+        trade_rows = ""
+        start_idx = (page - 1) * per_page
+        for i, r in enumerate(rows, 1):
+            ts, src, mode, direction, entry, exit_px, etype, pnl, roi, hold = r
+            ts_short = ts[5:19] if ts and len(ts) >= 19 else (ts or '')
+            pnl_c = 'win' if (pnl or 0) > 0 else 'lose'
+            src_badge = f'badge-{(src or "bot").lower()}'
+            mode_badge = f'badge-{(mode or "v12").lower()}'
+            etype_badge = f'badge-{(etype or "fc").lower()}'
+            dir_disp = '🟢 L' if direction == 'LONG' else '🔴 S'
+            hold_min = (hold or 0) / 60
+            hold_str = f"{hold_min:.0f}m" if hold_min < 60 else f"{hold_min/60:.1f}h"
+            trade_rows += (
+                f"<tr><td>{start_idx+i}</td><td>{ts_short}</td>"
+                f"<td><span class='badge {src_badge}'>{src or 'BOT'}</span></td>"
+                f"<td><span class='badge {mode_badge}'>{mode or '?'}</span></td>"
+                f"<td>{dir_disp}</td>"
+                f"<td>${(entry or 0):.3f}</td><td>${(exit_px or 0):.3f}</td>"
+                f"<td><span class='badge {etype_badge}'>{etype or '?'}</span></td>"
+                f"<td class='{pnl_c}'>${(pnl or 0):+,.2f}</td>"
+                f"<td class='{pnl_c}'>{(roi or 0):+.2f}%</td>"
+                f"<td>{hold_str}</td></tr>"
+            )
+        if not trade_rows:
+            trade_rows = "<tr><td colspan='11' class='empty'>거래 없음 - V12 크로스 또는 Mass bulge 대기 중</td></tr>"
+
+        # 페이지네이션 렌더
+        pagination = ""
+        if total_pages > 1:
+            if page > 1:
+                pagination += f'<a href="/trades?page={page-1}">◀ 이전</a>'
+            for p in range(max(1, page-2), min(total_pages+1, page+3)):
+                if p == page:
+                    pagination += f'<span class="current">{p}</span>'
+                else:
+                    pagination += f'<a href="/trades?page={p}">{p}</a>'
+            if page < total_pages:
+                pagination += f'<a href="/trades?page={page+1}">다음 ▶</a>'
+        else:
+            pagination = f'<span>전체 {total_trades_db}건</span>'
+
+        repl = {
+            '%%TOTAL%%': str(core.total_trades),
+            '%%WINS%%': str(core.win_count),
+            '%%LOSSES%%': str(core.loss_count),
+            '%%WR%%': f"{wr:.1f}",
+            '%%WR_CLASS%%': wr_class,
+            '%%PF%%': pf_str,
+            '%%TOTAL_PNL%%': f"{total_pnl:+,.2f}",
+            '%%PNL_CLASS%%': pnl_class,
+            '%%GP%%': f"{core.gross_profit:,.2f}",
+            '%%GL%%': f"{core.gross_loss:,.2f}",
+            '%%SL%%': str(core.sl_count),
+            '%%TSL%%': str(core.tsl_count),
+            '%%REV%%': str(core.rev_count),
+            '%%EXT%%': str(ext_count),
+            '%%PAGE%%': f"{page}/{total_pages}",
+            '%%TRADE_ROWS%%': trade_rows,
+            '%%PAGINATION%%': pagination,
+        }
+        html = HTML_TRADES
+        for k, v in repl.items():
+            html = html.replace(k, str(v))
+        return html
+
+    def _load_daily_summary(self, max_days: int = 30) -> list:
+        """daily_summary.log 파일에서 최근 N일 파싱"""
+        path = Path('logs/daily_summary.log')
+        if not path.exists():
+            return []
+        try:
+            lines = path.read_text(encoding='utf-8').strip().splitlines()
+        except Exception:
+            return []
+
+        out = []
+        for line in reversed(lines[-max_days:]):
+            # 형식: 2026-04-22 17:33:10 2026-04-21 | StartBal $5,000.00 | EndBal $5,020.00 (+0.40%) | Trades 2 (W1/L1, WR 50%) | SOL_PnL $+20.00 | ...
+            try:
+                parts = line.split(' | ')
+                if len(parts) < 5:
+                    continue
+                # parts[0]: "2026-04-22 17:33:10 2026-04-21"
+                date_part = parts[0].split()[-1] if len(parts[0].split()) >= 3 else parts[0]
+                start_bal = parts[1].replace('StartBal', '').replace('$', '').replace(',', '').strip()
+                end_info = parts[2].replace('EndBal', '').strip()
+                # "$5,020.00 (+0.40%)"
+                end_split = end_info.split('(')
+                end_bal = end_split[0].replace('$', '').replace(',', '').strip()
+                pct = end_split[1].rstrip(')').strip() if len(end_split) > 1 else '0%'
+                trades_info = parts[3].replace('Trades', '').strip()
+                # "2 (W1/L1, WR 50%)"
+                t_count = trades_info.split(' ')[0]
+                wl = trades_info.split('(')[1].rstrip(')') if '(' in trades_info else '-'
+                sol_pnl = parts[4].replace('SOL_PnL', '').replace('$', '').strip()
+                consec = parts[5].replace('ConsecLoss', '').strip() if len(parts) > 5 else '0'
+                out.append({
+                    'date': date_part, 'start': start_bal, 'end': end_bal, 'pct': pct,
+                    'trades': t_count, 'wl': wl, 'pnl': sol_pnl, 'consec': consec,
+                })
+            except Exception:
+                continue
+        return out[:max_days]
+
+    def _render_balance(self) -> str:
+        import math as _m
+        from sol_core_v1 import LEVERAGE, MAX_CAPITAL, COMPOUND_PCT, DAILY_LOSS_LIMIT
+        core = self.bot.core
+        ex = self.bot.executor
+
+        # SOL 전용 누적 PnL
+        cum_pnl = core.cumulative_sol_pnl
+        cum_class = 'win' if cum_pnl > 0 else ('lose' if cum_pnl < 0 else '')
+
+        # 오늘 SOL PnL
+        today_pnl = core.cumulative_sol_pnl - core.day_start_sol_pnl
+        today_class = 'win' if today_pnl > 0 else ('lose' if today_pnl < 0 else '')
+
+        # Direction label
+        last_exit = 'LONG' if core.last_exit_dir == 1 else ('SHORT' if core.last_exit_dir == -1 else '-')
+
+        # Consec class
+        consec_class = 'lose' if core.consec_losses >= 3 else ('warn' if core.consec_losses >= 2 else '')
+        mdd_class = 'lose' if core.max_drawdown > 0.30 else ('warn' if core.max_drawdown > 0.15 else '')
+
+        # Daily rows
+        daily_data = self._load_daily_summary(30)
+        daily_rows = ""
+        for d in daily_data:
+            # pct color
+            try:
+                pct_val = float(d['pct'].replace('%', '').replace('+', ''))
+                pct_class = 'win' if pct_val > 0 else ('lose' if pct_val < 0 else '')
+            except Exception:
+                pct_class = ''
+            try:
+                pnl_val = float(d['pnl'].replace(',', '').replace('+', ''))
+                pnl_class = 'win' if pnl_val > 0 else ('lose' if pnl_val < 0 else '')
+            except Exception:
+                pnl_class = ''
+            daily_rows += (
+                f"<tr><td>{d['date']}</td>"
+                f"<td>${d['start']}</td>"
+                f"<td>${d['end']}</td>"
+                f"<td class='{pct_class}'>{d['pct']}</td>"
+                f"<td>{d['trades']}</td>"
+                f"<td>{d['wl']}</td>"
+                f"<td class='{pnl_class}'>${d['pnl']}</td>"
+                f"<td>{d['consec']}</td></tr>"
+            )
+        if not daily_rows:
+            daily_rows = "<tr><td colspan='8' style='text-align:center;color:#64748b;padding:40px'>아직 일일 요약 데이터 없음 (UTC 자정 이후 첫 기록 생성)</td></tr>"
+
+        repl = {
+            '%%BALANCE%%': f"{ex.balance:,.2f}",
+            '%%AVAILABLE%%': f"{ex.available_balance:,.2f}",
+            '%%PEAK%%': f"{core.peak_capital:,.2f}",
+            '%%CUMULATIVE%%': f"{cum_pnl:+,.2f}",
+            '%%CUM_CLASS%%': cum_class,
+            '%%TODAY_PNL%%': f"{today_pnl:+,.2f}",
+            '%%TODAY_CLASS%%': today_class,
+            '%%TODAY_TRADES%%': str(core.daily_trade_count),
+            '%%DAY_START%%': f"{core.day_start_balance:,.2f}",
+            '%%LEVERAGE%%': str(LEVERAGE),
+            '%%MAX_CAP%%': f"{MAX_CAPITAL:,.0f}",
+            '%%COMPOUND%%': f"{COMPOUND_PCT*100:.1f}",
+            '%%DAILY_LIMIT%%': f"{DAILY_LOSS_LIMIT*100:.1f}",
+            '%%CONSEC%%': str(core.consec_losses),
+            '%%CONSEC_CLASS%%': consec_class,
+            '%%SKIP%%': str(core.skip_remaining),
+            '%%MDD%%': f"{core.max_drawdown*100:.2f}",
+            '%%MDD_CLASS%%': mdd_class,
+            '%%LAST_EXIT%%': last_exit,
+            '%%DAILY_COUNT%%': str(len(daily_data)),
+            '%%DAILY_ROWS%%': daily_rows,
+        }
+        html = HTML_BALANCE
+        for k, v in repl.items():
+            html = html.replace(k, str(v))
+        return html
+
     def _setup_routes(self):
         @self.app.get('/login', response_class=HTMLResponse)
         async def login_page():
@@ -398,6 +794,19 @@ class WebDashboard:
                 return RedirectResponse('/login', status_code=303)
             trades = await self._fetch_recent_trades(20)
             return HTMLResponse(self._render_dashboard(trades))
+
+        @self.app.get('/trades', response_class=HTMLResponse)
+        async def trades_page(request: Request, page: int = 1):
+            if not self._is_auth(request):
+                return RedirectResponse('/login', status_code=303)
+            html = await self._render_trades(page=max(1, page))
+            return HTMLResponse(html)
+
+        @self.app.get('/balance', response_class=HTMLResponse)
+        async def balance_page(request: Request):
+            if not self._is_auth(request):
+                return RedirectResponse('/login', status_code=303)
+            return HTMLResponse(self._render_balance())
 
         @self.app.get('/api/status')
         async def api_status(request: Request):
