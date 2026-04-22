@@ -45,7 +45,7 @@ MASS_EMA_PERIOD = 9
 MASS_SUM_PERIOD = 25
 BTC_EMA_PERIOD = 200
 
-CANDLE_LIMIT_LOAD = 15000  # 5분봉 15000개 = 약 52일 = 15m봉 5000개 (SMA400 충분)
+CANDLE_LIMIT_LOAD = 51840  # 5분봉 51840개 = 180일 (6개월) = 15m봉 17280개
 CSV_SAVE_INTERVAL = 300    # 5분마다 CSV 저장
 CSV_CACHE_DIR = 'cache'    # CSV 저장 디렉토리
 CSV_FILTER_DAYS = 180      # 메모리 + CSV 보관 기간: 최근 180일 (6개월)
@@ -241,12 +241,30 @@ class DataCollector:
                 df_csv = self._trim_raw_to_retention(df_csv)
         else:
             # CSV 없음 or 6개월 이내 데이터 없음 → API 로드
-            days_back = min(CSV_FILTER_DAYS, max(30, total // 288 + 5))
+            days_back = CSV_FILTER_DAYS   # ★ 항상 180일 전체 로드
             logger.info(f"  {symbol} API 로드 (최근 {days_back}일, 최대 {total}개 5분봉)")
             since_ms = int((time.time() - days_back * 86400) * 1000)
-            df_csv = await self._fetch_5m_from(symbol, since_ms=since_ms, max_batches=20)
+            df_csv = await self._fetch_5m_from(symbol, since_ms=since_ms, max_batches=40)
             if df_csv is None or len(df_csv) < 500:
                 return None
+
+        # ★ CSV 데이터가 부족하면 (보관기간 절반 미만) 과거 데이터 역행 fetch
+        if df_csv is not None and len(df_csv) > 0:
+            csv_span_days = (df_csv.index.max() - df_csv.index.min()).total_seconds() / 86400
+            target_days = CSV_FILTER_DAYS
+            if csv_span_days < target_days * 0.9:  # 162일 미만이면 부족
+                logger.info(f"  {symbol} CSV 부족 ({csv_span_days:.1f}일 < {target_days}일) → 과거 데이터 역행 fetch")
+                earliest_ms = int(df_csv.index.min().timestamp() * 1000)
+                target_earliest_ms = int((time.time() - target_days * 86400) * 1000)
+                if earliest_ms > target_earliest_ms:
+                    df_past = await self._fetch_5m_from(symbol,
+                                                        since_ms=target_earliest_ms,
+                                                        max_batches=40)
+                    if df_past is not None and len(df_past) > 0:
+                        df_csv = pd.concat([df_past, df_csv])
+                        df_csv = df_csv[~df_csv.index.duplicated(keep='last')].sort_index()
+                        df_csv = self._trim_raw_to_retention(df_csv)
+                        logger.info(f"  {symbol} 역행 fetch 완료: 총 {len(df_csv):,}봉")
 
         # CSV에 저장 (6개월 내 데이터만, 연도별 분리) + 오래된 파일 자동 삭제
         self._save_csv_yearly(symbol_short, df_csv)
