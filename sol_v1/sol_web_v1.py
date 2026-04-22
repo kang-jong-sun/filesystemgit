@@ -93,8 +93,10 @@ tr:hover{background:rgba(255,255,255,0.02)}
   <div class="brand">🪙 SOL V1</div>
   <div class="nav">
     <a href="/" class="active-tab">Dashboard</a>
+    <a href="/chart">Chart</a>
     <a href="/trades">Trades</a>
     <a href="/balance">Balance</a>
+    <a href="/errors">Errors</a>
     <a href="/logout" class="logout">Logout</a>
   </div>
 </div>
@@ -217,8 +219,10 @@ tr:hover{background:rgba(255,255,255,0.02)}
   <div class="brand">🪙 SOL V1</div>
   <div class="nav">
     <a href="/">Dashboard</a>
+    <a href="/chart">Chart</a>
     <a href="/trades" class="active-tab">Trades</a>
     <a href="/balance">Balance</a>
+    <a href="/errors">Errors</a>
     <a href="/logout" class="logout">Logout</a>
   </div>
 </div>
@@ -279,8 +283,10 @@ tr:hover{background:rgba(255,255,255,0.02)}
   <div class="brand">🪙 SOL V1</div>
   <div class="nav">
     <a href="/">Dashboard</a>
+    <a href="/chart">Chart</a>
     <a href="/trades">Trades</a>
     <a href="/balance" class="active-tab">Balance</a>
+    <a href="/errors">Errors</a>
     <a href="/logout" class="logout">Logout</a>
   </div>
 </div>
@@ -322,6 +328,282 @@ tr:hover{background:rgba(255,255,255,0.02)}
   </table>
   <div class="meta" style="margin-top:10px">※ daily_summary.log 파일에서 읽어옵니다</div>
 </div>
+</body></html>"""
+
+
+HTML_ERRORS = """<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><title>SOL V1 Errors</title>
+<meta http-equiv="refresh" content="30">
+<style>
+*{box-sizing:border-box}
+body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e0e0;margin:0;padding:20px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #2d3748}
+.brand{color:#4ade80;font-size:22px;font-weight:bold}
+.nav{display:flex;gap:4px;flex-wrap:wrap}
+.nav a{padding:8px 16px;color:#94a3b8;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;transition:all 0.15s}
+.nav a:hover{background:#1e293b;color:#e0e0e0}
+.nav a.active-tab{background:#1e293b;color:#4ade80;box-shadow:inset 0 -2px 0 #4ade80}
+.logout{color:#64748b;padding:6px 12px;border-radius:6px;text-decoration:none;font-size:13px}
+.card{background:#1a1f2e;padding:16px;border-radius:10px;border:1px solid #2d3748;margin-bottom:16px}
+.card h3{margin:0 0 12px;color:#94a3b8;font-size:13px;text-transform:uppercase;letter-spacing:0.5px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.summary .v{font-size:24px;font-weight:bold}
+.summary .sub{font-size:11px;color:#64748b;margin-top:4px}
+.log-line{font-family:Consolas,Monaco,monospace;font-size:12px;padding:8px 10px;border-bottom:1px solid #1f2937;white-space:pre-wrap;word-break:break-all}
+.log-line:hover{background:rgba(255,255,255,0.03)}
+.level-ERROR{color:#ef4444;border-left:3px solid #ef4444}
+.level-WARNING{color:#eab308;border-left:3px solid #eab308}
+.level-OTHER{color:#94a3b8;border-left:3px solid #64748b}
+.file-tag{display:inline-block;font-size:10px;background:#1e293b;padding:2px 6px;border-radius:4px;color:#64748b;margin-right:8px}
+.empty{text-align:center;color:#64748b;padding:60px}
+.empty-big{font-size:48px;margin-bottom:10px}
+.filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filter-btn{padding:6px 14px;background:#1e293b;color:#94a3b8;border:1px solid #2d3748;border-radius:6px;cursor:pointer;font-size:12px}
+.filter-btn.active{background:#4ade80;color:#0a0e1a;border-color:#4ade80}
+</style></head>
+<body>
+<div class="topbar">
+  <div class="brand">🪙 SOL V1</div>
+  <div class="nav">
+    <a href="/">Dashboard</a>
+    <a href="/chart">Chart</a>
+    <a href="/trades">Trades</a>
+    <a href="/balance">Balance</a>
+    <a href="/errors" class="active-tab">Errors</a>
+    <a href="/logout" class="logout">Logout</a>
+  </div>
+</div>
+
+<div class="summary">
+  <div class="card"><h3>⚠ 총 이벤트</h3><div class="v">%%TOTAL%%</div><div class="sub">최근 3일 error_*.log</div></div>
+  <div class="card"><h3>🔴 Errors</h3><div class="v" style="color:#ef4444">%%ERRORS%%</div><div class="sub">즉시 대응 필요</div></div>
+  <div class="card"><h3>🟡 Warnings</h3><div class="v" style="color:#eab308">%%WARNINGS%%</div><div class="sub">참고용</div></div>
+  <div class="card"><h3>📅 조회 기간</h3><div class="v" style="font-size:14px">365일 보관</div><div class="sub">30초 자동 새로고침</div></div>
+</div>
+
+<div class="card">
+  <h3>🗂 필터</h3>
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filter('all')">All</button>
+    <button class="filter-btn" onclick="filter('ERROR')">🔴 Errors Only</button>
+    <button class="filter-btn" onclick="filter('WARNING')">🟡 Warnings Only</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>📋 로그 (최신순, 최근 100개)</h3>
+  <div id="log-container">
+    %%LOG_LINES%%
+  </div>
+</div>
+
+<script>
+function filter(level) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.log-line').forEach(line => {
+    if (level === 'all') line.style.display = '';
+    else line.style.display = line.classList.contains('level-' + level) ? '' : 'none';
+  });
+}
+</script>
+</body></html>"""
+
+
+HTML_CHART = """<!DOCTYPE html>
+<html lang="ko"><head><meta charset="UTF-8"><title>SOL V1 Chart</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+*{box-sizing:border-box}
+body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e0e0;margin:0;padding:20px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #2d3748}
+.brand{color:#4ade80;font-size:22px;font-weight:bold}
+.nav{display:flex;gap:4px;flex-wrap:wrap}
+.nav a{padding:8px 16px;color:#94a3b8;text-decoration:none;border-radius:6px;font-size:14px;font-weight:500;transition:all 0.15s}
+.nav a:hover{background:#1e293b;color:#e0e0e0}
+.nav a.active-tab{background:#1e293b;color:#4ade80;box-shadow:inset 0 -2px 0 #4ade80}
+.logout{color:#64748b;padding:6px 12px;border-radius:6px;text-decoration:none;font-size:13px}
+.chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:10px}
+.chart-title{font-size:16px;color:#e0e0e0}
+.chart-title .price{font-size:24px;font-weight:bold;color:#4ade80;margin-left:10px}
+.info-bar{display:flex;gap:12px;font-size:12px;color:#94a3b8;flex-wrap:wrap;align-items:center}
+.info-bar span{padding:6px 10px;background:#1a1f2e;border-radius:6px;border:1px solid #2d3748}
+.legend{display:flex;gap:16px;margin-top:10px;font-size:12px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px}
+.legend-dot{width:12px;height:3px;border-radius:1px}
+.range-selector{display:flex;gap:4px}
+.range-btn{padding:6px 12px;background:#1a1f2e;color:#94a3b8;border:1px solid #2d3748;border-radius:6px;cursor:pointer;font-size:12px}
+.range-btn.active{background:#4ade80;color:#0a0e1a;border-color:#4ade80}
+#chart{width:100%;height:600px;background:#0a0e1a;border-radius:10px;border:1px solid #2d3748;margin-top:10px}
+#loading{text-align:center;color:#64748b;padding:60px}
+.pos-info{background:#1a1f2e;padding:12px;border-radius:8px;border-left:4px solid #eab308;margin-top:10px;font-size:13px}
+.pos-long{border-left-color:#22c55e}
+.pos-short{border-left-color:#ef4444}
+@media (max-width:640px){#chart{height:400px}.chart-header{flex-direction:column;align-items:flex-start}}
+</style></head>
+<body>
+<div class="topbar">
+  <div class="brand">🪙 SOL V1</div>
+  <div class="nav">
+    <a href="/">Dashboard</a>
+    <a href="/chart" class="active-tab">Chart</a>
+    <a href="/trades">Trades</a>
+    <a href="/balance">Balance</a>
+    <a href="/errors">Errors</a>
+    <a href="/logout" class="logout">Logout</a>
+  </div>
+</div>
+
+<div class="chart-header">
+  <div class="chart-title">SOL/USDT 15m<span class="price" id="current-price">-</span></div>
+  <div class="range-selector">
+    <button class="range-btn" onclick="loadChart(672)">1W</button>
+    <button class="range-btn" onclick="loadChart(2880)">1M</button>
+    <button class="range-btn active" onclick="loadChart(8640)">3M</button>
+    <button class="range-btn" onclick="loadChart(17280)">6M</button>
+  </div>
+</div>
+
+<div class="info-bar" id="info-bar">
+  <span>EMA9: <b id="ema9-val">-</b></span>
+  <span>SMA400: <b id="sma400-val">-</b></span>
+  <span>Bars: <b id="bars-count">0</b></span>
+  <span>Position: <b id="position-info">없음</b></span>
+</div>
+
+<div id="chart"><div id="loading">📊 차트 로딩 중... (3개월치 8,640봉)</div></div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Up Candle</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Down Candle</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#facc15"></div>EMA(9) Fast</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>SMA(400) Slow</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>▲ WIN Trade</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>▼ LOSS Trade</div>
+</div>
+
+<div id="pos-block"></div>
+
+<script>
+let chart, candleSeries, ema9Series, sma400Series;
+
+function initChart() {
+  const container = document.getElementById('chart');
+  container.innerHTML = '';
+  chart = LightweightCharts.createChart(container, {
+    layout: {
+      background: { type: 'solid', color: '#0a0e1a' },
+      textColor: '#94a3b8',
+      fontSize: 11,
+    },
+    grid: {
+      vertLines: { color: '#1e293b' },
+      horzLines: { color: '#1e293b' },
+    },
+    crosshair: {
+      mode: LightweightCharts.CrosshairMode.Normal,
+    },
+    rightPriceScale: {
+      borderColor: '#2d3748',
+      scaleMargins: { top: 0.1, bottom: 0.1 },
+    },
+    timeScale: {
+      borderColor: '#2d3748',
+      timeVisible: true,
+      secondsVisible: false,
+    },
+    height: Math.min(600, window.innerHeight - 250),
+  });
+  candleSeries = chart.addCandlestickSeries({
+    upColor: '#22c55e', downColor: '#ef4444',
+    borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+    wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+  });
+  ema9Series = chart.addLineSeries({
+    color: '#facc15', lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+    title: 'EMA(9)',
+  });
+  sma400Series = chart.addLineSeries({
+    color: '#f97316', lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+    title: 'SMA(400)',
+  });
+  window.addEventListener('resize', () => {
+    chart.resize(container.clientWidth, Math.min(600, window.innerHeight - 250));
+  });
+}
+
+async function loadChart(limit) {
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  event && event.target && event.target.classList.add('active');
+
+  if (!chart) initChart();
+  try {
+    const resp = await fetch('/api/candles?limit=' + limit);
+    const data = await resp.json();
+    if (data.error) { alert('Error: ' + data.error); return; }
+
+    candleSeries.setData(data.candles);
+    ema9Series.setData(data.ema9);
+    sma400Series.setData(data.sma400);
+
+    if (data.markers && data.markers.length > 0) {
+      candleSeries.setMarkers(data.markers);
+    }
+
+    // 현재 포지션 SL 라인
+    if (data.position) {
+      const p = data.position;
+      candleSeries.createPriceLine({
+        price: p.entry_price, color: '#eab308', lineWidth: 1, lineStyle: 2,
+        axisLabelVisible: true, title: 'ENTRY ' + (p.direction === 1 ? 'L' : 'S'),
+      });
+      candleSeries.createPriceLine({
+        price: p.sl_price, color: '#ef4444', lineWidth: 1, lineStyle: 2,
+        axisLabelVisible: true, title: 'SL',
+      });
+      document.getElementById('pos-block').innerHTML =
+        '<div class="pos-info pos-' + (p.direction === 1 ? 'long' : 'short') + '">' +
+        '📍 현재 포지션 [' + p.mode + '] ' + (p.direction === 1 ? 'LONG 🟢' : 'SHORT 🔴') +
+        ' @ $' + p.entry_price.toFixed(3) + ' | SL $' + p.sl_price.toFixed(3) +
+        '</div>';
+      document.getElementById('position-info').textContent =
+        (p.direction === 1 ? 'LONG' : 'SHORT') + ' @$' + p.entry_price.toFixed(2);
+    } else {
+      document.getElementById('pos-block').innerHTML = '';
+      document.getElementById('position-info').textContent = '없음 (대기 중)';
+    }
+
+    // 현재가 + 최신 지표 업데이트
+    if (data.candles.length > 0) {
+      const last = data.candles[data.candles.length - 1];
+      document.getElementById('current-price').textContent = '$' + last.close.toFixed(3);
+    }
+    if (data.ema9.length > 0) {
+      document.getElementById('ema9-val').textContent = '$' + data.ema9[data.ema9.length-1].value.toFixed(3);
+    }
+    if (data.sma400.length > 0) {
+      document.getElementById('sma400-val').textContent = '$' + data.sma400[data.sma400.length-1].value.toFixed(3);
+    }
+    document.getElementById('bars-count').textContent = data.returned_bars + ' / ' + data.total_bars;
+
+    chart.timeScale().fitContent();
+  } catch (e) {
+    document.getElementById('chart').innerHTML = '<div id="loading">❌ 차트 로딩 실패: ' + e + '</div>';
+  }
+}
+
+// 초기 로드 (3개월)
+initChart();
+loadChart(8640);
+
+// 5분마다 자동 갱신
+setInterval(() => {
+  const activeBtn = document.querySelector('.range-btn.active');
+  const limits = {'1W':672,'1M':2880,'3M':8640,'6M':17280};
+  const lim = limits[activeBtn ? activeBtn.textContent : '3M'] || 8640;
+  loadChart(lim);
+}, 300000);
+</script>
 </body></html>"""
 
 
@@ -769,6 +1051,56 @@ class WebDashboard:
             html = html.replace(k, str(v))
         return html
 
+    def _render_errors(self) -> str:
+        """최근 error_*.log 파일 파싱 + HTML 렌더링"""
+        import glob
+        import html as _html
+        log_files = sorted(glob.glob('logs/error_*.log'), reverse=True)
+        errors_lines = []
+        for lf in log_files[:3]:  # 최근 3일
+            try:
+                with open(lf, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        s = line.rstrip()
+                        if not s:
+                            continue
+                        level = 'WARNING' if 'WARNING' in s else ('ERROR' if 'ERROR' in s else 'OTHER')
+                        errors_lines.append({
+                            'file': os.path.basename(lf),
+                            'line': s,
+                            'level': level,
+                        })
+            except Exception:
+                continue
+        # 최신순 (역순)
+        errors_lines = errors_lines[::-1][:100]
+        total = len(errors_lines)
+        err_count = sum(1 for e in errors_lines if e['level'] == 'ERROR')
+        warn_count = sum(1 for e in errors_lines if e['level'] == 'WARNING')
+
+        log_html = ""
+        if not errors_lines:
+            log_html = '<div class="empty"><div class="empty-big">✅</div>에러/경고 없음 — 봇이 건강하게 작동 중</div>'
+        else:
+            for e in errors_lines:
+                log_html += (
+                    f'<div class="log-line level-{e["level"]}">'
+                    f'<span class="file-tag">{_html.escape(e["file"])}</span>'
+                    f'{_html.escape(e["line"])}'
+                    f'</div>'
+                )
+
+        repl = {
+            '%%TOTAL%%': str(total),
+            '%%ERRORS%%': str(err_count),
+            '%%WARNINGS%%': str(warn_count),
+            '%%LOG_LINES%%': log_html,
+        }
+        html = HTML_ERRORS
+        for k, v in repl.items():
+            html = html.replace(k, str(v))
+        return html
+
     def _setup_routes(self):
         @self.app.get('/login', response_class=HTMLResponse)
         async def login_page():
@@ -808,6 +1140,18 @@ class WebDashboard:
                 return RedirectResponse('/login', status_code=303)
             return HTMLResponse(self._render_balance())
 
+        @self.app.get('/errors', response_class=HTMLResponse)
+        async def errors_page(request: Request):
+            if not self._is_auth(request):
+                return RedirectResponse('/login', status_code=303)
+            return HTMLResponse(self._render_errors())
+
+        @self.app.get('/chart', response_class=HTMLResponse)
+        async def chart_page(request: Request):
+            if not self._is_auth(request):
+                return RedirectResponse('/login', status_code=303)
+            return HTMLResponse(HTML_CHART)
+
         @self.app.get('/api/status')
         async def api_status(request: Request):
             if not self._is_auth(request):
@@ -822,6 +1166,114 @@ class WebDashboard:
                 'consec_losses': core.consec_losses, 'skip_remaining': core.skip_remaining,
                 'has_position': core.has_position,
             })
+
+        @self.app.get('/api/candles')
+        async def api_candles(request: Request, limit: int = 8640):
+            """15분봉 캔들 + EMA9/SMA400 (기본 3개월 = 8640봉)"""
+            if not self._is_auth(request):
+                return JSONResponse({'error': 'unauthorized'}, status_code=401)
+            try:
+                bot = self.bot
+                if not bot.data or bot.data.df_sol is None:
+                    return {'candles': [], 'ema9': [], 'sma400': []}
+                df = bot.data.df_sol
+                n = len(df)
+                count = min(limit, n) if limit > 0 else n
+                start = n - count
+                KST_OFFSET = 9 * 3600
+                candles = []
+                for i in range(start, n):
+                    ts = int(df.index[i].timestamp()) + KST_OFFSET
+                    candles.append({
+                        'time': ts,
+                        'open': round(float(df['open'].iloc[i]), 3),
+                        'high': round(float(df['high'].iloc[i]), 3),
+                        'low': round(float(df['low'].iloc[i]), 3),
+                        'close': round(float(df['close'].iloc[i]), 3),
+                    })
+                ema9_data = []
+                sma400_data = []
+                if bot.data.fast_ma is not None and bot.data.slow_ma is not None:
+                    for i in range(start, n):
+                        ts = int(df.index[i].timestamp()) + KST_OFFSET
+                        v9 = float(bot.data.fast_ma[i])
+                        v400 = float(bot.data.slow_ma[i])
+                        if v9 > 0 and not math.isnan(v9):
+                            ema9_data.append({'time': ts, 'value': round(v9, 3)})
+                        if v400 > 0 and not math.isnan(v400):
+                            sma400_data.append({'time': ts, 'value': round(v400, 3)})
+                # 최근 거래 마커 (SL/TSL/REV만, 최대 100개)
+                markers = []
+                try:
+                    async with aiosqlite.connect(DB_PATH) as db:
+                        cur = await db.execute(
+                            "SELECT timestamp, direction, entry_price, exit_price, exit_type, pnl "
+                            "FROM trades ORDER BY id DESC LIMIT 100")
+                        rows = await cur.fetchall()
+                        for r in rows:
+                            try:
+                                from datetime import datetime as _dt
+                                t = _dt.strptime(r[0], '%Y-%m-%d %H:%M:%S').timestamp() + KST_OFFSET
+                                is_long = r[1] == 'LONG'
+                                pnl = r[5] or 0
+                                color = '#22c55e' if pnl > 0 else '#ef4444'
+                                markers.append({
+                                    'time': int(t),
+                                    'position': 'belowBar' if is_long else 'aboveBar',
+                                    'color': color,
+                                    'shape': 'arrowUp' if is_long else 'arrowDown',
+                                    'text': f"{r[4]} {'+' if pnl>0 else ''}{pnl:.1f}",
+                                })
+                            except Exception:
+                                continue
+                except Exception:
+                    pass
+                # 현재 포지션
+                position = None
+                if bot.core and bot.core.has_position:
+                    p = bot.core.position
+                    position = {
+                        'entry_price': p.entry_price,
+                        'sl_price': p.sl_price,
+                        'direction': p.direction,
+                        'mode': 'V12' if p.entry_mode == 1 else 'MASS',
+                    }
+                return {
+                    'candles': candles,
+                    'ema9': ema9_data,
+                    'sma400': sma400_data,
+                    'markers': markers,
+                    'position': position,
+                    'total_bars': n,
+                    'returned_bars': count,
+                }
+            except Exception as e:
+                logger.error(f"candles API: {e}")
+                return {'candles': [], 'ema9': [], 'sma400': [], 'error': str(e)}
+
+        @self.app.get('/api/errors')
+        async def api_errors(request: Request, limit: int = 100):
+            """error_*.log 파일에서 최근 에러/경고"""
+            if not self._is_auth(request):
+                return JSONResponse({'error': 'unauthorized'}, status_code=401)
+            try:
+                import glob
+                log_files = sorted(glob.glob('logs/error_*.log'), reverse=True)
+                errors = []
+                for lf in log_files[:3]:  # 최근 3일
+                    try:
+                        with open(lf, 'r', encoding='utf-8') as f:
+                            for line in f:
+                                line = line.strip()
+                                if not line:
+                                    continue
+                                level = 'WARNING' if 'WARNING' in line else ('ERROR' if 'ERROR' in line else 'OTHER')
+                                errors.append({'file': os.path.basename(lf), 'line': line, 'level': level})
+                    except Exception:
+                        continue
+                return {'errors': errors[-limit:][::-1], 'total': len(errors)}
+            except Exception as e:
+                return {'errors': [], 'error': str(e)}
 
     async def start(self):
         """웹 서버 시작 (비동기 백그라운드)"""
