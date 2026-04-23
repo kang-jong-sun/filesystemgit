@@ -565,6 +565,7 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
 
 <script>
 let chart, candleSeries, ema9Series, sma400Series;
+let currentBar = null;  // 진행 중 봉 추적 (실시간 업데이트용)
 
 function initChart() {
   const container = document.getElementById('chart');
@@ -626,6 +627,12 @@ async function loadChart(limit) {
     ema9Series.setData(data.ema9);
     sma400Series.setData(data.sma400);
 
+    // ★ 마지막 봉을 currentBar로 seed (WebSocket/polling으로 이어서 업데이트)
+    if (data.candles.length > 0) {
+      const last = data.candles[data.candles.length - 1];
+      currentBar = { time: last.time, open: last.open, high: last.high, low: last.low, close: last.close };
+    }
+
     if (data.markers && data.markers.length > 0) {
       candleSeries.setMarkers(data.markers);
     }
@@ -686,10 +693,42 @@ async function loadChart(limit) {
 initChart();
 loadChart(17280);
 
-// 5분마다 자동 갱신
+// 30초마다 자동 갱신 (진행 중 봉 실시간 반영 위해 5분 → 30초 단축)
 setInterval(() => {
   loadChart(17280);
-}, 300000);
+}, 30000);
+
+// ★ 진행 중 봉 실시간 업데이트 (ETH V8 방식): 5초마다 현재가 폴링
+async function updateCurrentBar() {
+  try {
+    const resp = await fetch('/api/status');
+    if (!resp.ok) return;
+    const d = await resp.json();
+    if (!d.price || !candleSeries) return;
+
+    // 현재가 표시 갱신
+    document.getElementById('current-price').textContent = '$' + d.price.toFixed(3);
+
+    // 진행 중인 15m 봉에 현재가 반영
+    if (currentBar) {
+      const nowKstSec = Math.floor(Date.now() / 1000) + (9 * 3600);
+      // 15분 봉 시작 시각 (KST 기준)
+      const barStart = nowKstSec - (nowKstSec % 900);
+      if (barStart === currentBar.time) {
+        // 같은 봉: high/low/close 업데이트
+        currentBar.high = Math.max(currentBar.high, d.price);
+        currentBar.low = Math.min(currentBar.low, d.price);
+        currentBar.close = d.price;
+        candleSeries.update(currentBar);
+      } else if (barStart > currentBar.time) {
+        // 새 봉 시작
+        currentBar = { time: barStart, open: d.price, high: d.price, low: d.price, close: d.price };
+        candleSeries.update(currentBar);
+      }
+    }
+  } catch(e) {}
+}
+setInterval(updateCurrentBar, 5000);
 </script>
 </body></html>"""
 
@@ -1471,7 +1510,15 @@ class WebDashboard:
                 return JSONResponse({'error': 'unauthorized'}, status_code=401)
             core = self.bot.core
             ex = self.bot.executor
+            data = self.bot.data
+            # WebSocket 실시간 가격 (없으면 마지막 봉 close fallback)
+            price = 0.0
+            if data and data.current_price > 0:
+                price = float(data.current_price)
+            elif data and data.df_sol is not None and len(data.df_sol) > 0:
+                price = float(data.df_sol['close'].iloc[-1])
             return JSONResponse({
+                'price': price,
                 'balance': ex.balance, 'available': ex.available_balance,
                 'peak': core.peak_capital, 'mdd': core.max_drawdown,
                 'total_trades': core.total_trades, 'win_rate': core.win_rate,
