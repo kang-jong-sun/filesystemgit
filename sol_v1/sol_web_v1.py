@@ -586,7 +586,14 @@ async function loadChart(limit) {
     }
     document.getElementById('bars-count').textContent = data.returned_bars + ' / ' + data.total_bars;
 
-    chart.timeScale().fitContent();
+    // 전체 데이터 범위로 스케일 맞춤
+    if (data.candles.length > 0) {
+      const firstTime = data.candles[0].time;
+      const lastTime = data.candles[data.candles.length - 1].time;
+      chart.timeScale().setVisibleRange({ from: firstTime, to: lastTime });
+    } else {
+      chart.timeScale().fitContent();
+    }
   } catch (e) {
     document.getElementById('chart').innerHTML = '<div id="loading">❌ 차트 로딩 실패: ' + e + '</div>';
   }

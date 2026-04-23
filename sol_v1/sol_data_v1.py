@@ -494,8 +494,10 @@ class DataCollector:
                 if len(new_rows) > 0:
                     self.df_sol = pd.concat([self.df_sol, new_rows]).sort_index()
                     self.df_sol = self.df_sol[~self.df_sol.index.duplicated(keep='last')]
-                    if len(self.df_sol) > 10000:
-                        self.df_sol = self.df_sol.iloc[-10000:]
+                    # ★ 6개월(180일) 기준으로 15m 봉 제한: 17,280봉 = 180*24*4
+                    MAX_15M_BARS = CSV_FILTER_DAYS * 24 * 4  # 17,280
+                    if len(self.df_sol) > MAX_15M_BARS:
+                        self.df_sol = self.df_sol.iloc[-MAX_15M_BARS:]
                     self.last_candle_time = int(df_new15.index[-1].timestamp() * 1000)
                     self._calculate_indicators()
                     logger.debug(f"SOL 15m {len(new_rows)}봉 추가, 총 {len(self.df_sol)}봉")
@@ -529,8 +531,10 @@ class DataCollector:
                 if len(new_rows) > 0:
                     self.df_btc = pd.concat([self.df_btc, new_rows]).sort_index()
                     self.df_btc = self.df_btc[~self.df_btc.index.duplicated(keep='last')]
-                    if len(self.df_btc) > 5000:
-                        self.df_btc = self.df_btc.iloc[-5000:]
+                    # ★ 6개월(180일) 기준 1h 봉 제한: 4,320봉 = 180*24
+                    MAX_1H_BARS = CSV_FILTER_DAYS * 24  # 4,320
+                    if len(self.df_btc) > MAX_1H_BARS:
+                        self.df_btc = self.df_btc.iloc[-MAX_1H_BARS:]
                     self.btc_last_time = int(df_new1h.index[-1].timestamp() * 1000)
                     btc_c = self.df_btc['close'].values.astype(np.float64)
                     self.btc_close = btc_c
