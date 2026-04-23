@@ -664,16 +664,18 @@ async function loadChart(limit) {
 
     // 기본 표시: 최근 7일 (~672봉) — 트레이딩뷰 스타일
     // 전체 17,280봉은 메모리에 있어 휠/드래그로 과거 탐색 가능
+    // setVisibleLogicalRange (bar index 기반) 사용 → 대용량 데이터에서도 안정적
     if (data.candles.length > 0) {
-      const lastCandle = data.candles[data.candles.length - 1];
-      const defaultSpanSec = 7 * 24 * 3600;  // 7일
-      const fromTime = lastCandle.time - defaultSpanSec;
-      const firstCandle = data.candles[0];
-      // 데이터가 7일보다 적으면 전체
-      const effectiveFrom = fromTime < firstCandle.time ? firstCandle.time : fromTime;
-      chart.timeScale().setVisibleRange({
-        from: effectiveFrom,
-        to: lastCandle.time
+      const totalBars = data.candles.length;
+      const defaultBars = 7 * 24 * 4;  // 7일 × 96봉(15m) = 672봉
+      const fromIndex = Math.max(0, totalBars - defaultBars);
+      const toIndex = totalBars - 1;
+      // 렌더링 완료 후 범위 설정 (setData 직후 호출 시 무시되는 경우 방지)
+      requestAnimationFrame(() => {
+        chart.timeScale().setVisibleLogicalRange({
+          from: fromIndex,
+          to: toIndex + 2  // 우측 여백 2봉
+        });
       });
     }
   } catch (e) {
