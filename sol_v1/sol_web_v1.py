@@ -842,12 +842,20 @@ class WebDashboard:
         watch_expired = False
         watch_delay_active = False
         watch_active = False
+        # ★ TIME 기반 (재시작 후에도 정확)
+        latest_bar_ts = 0
+        if data and data.df_sol is not None and len(data.df_sol) > 0:
+            latest_bar_ts = data.df_sol.index[-1].timestamp()
         if w.direction == 0:
             watch_txt = "대기 중 (cross 미감지)"
             f_watch_class, f_watch_text = 'fail', '⏳ Cross 대기'
         else:
-            bar_idx_now = data.get_latest_index() if data else 0
-            bars_since_cross = bar_idx_now - w.start_bar
+            # ★ TIME 기반 경과 봉 계산 (15m = 900초)
+            if latest_bar_ts > 0 and w.start_time > 0:
+                elapsed_sec = latest_bar_ts - w.start_time
+                bars_since_cross = int(elapsed_sec // 900)  # 15분 단위
+            else:
+                bars_since_cross = 0
             watch_dir = 'LONG' if w.direction == 1 else 'SHORT'
             if bars_since_cross > MONITOR_WIN:
                 watch_txt = f"{watch_dir} 만료 ({bars_since_cross}봉)"

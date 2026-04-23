@@ -623,23 +623,33 @@ class TradingCore:
             self.watch_v12 = WatchState(direction=1, start_bar=bar_idx,
                                          start_time=bar['timestamp'], entry_mode=1)
             signal_log.info(f"V12 CROSS_UP @ bar#{bar_idx} price ${bar['close']:.3f} | EMA9 ${fm:.3f} > SMA400 ${sm:.3f} | watch started (LONG)")
+            self.save_state()  # ★ watch 변경 즉시 디스크 저장 (재시작 대비)
         elif cross_dn:
             self.watch_v12 = WatchState(direction=-1, start_bar=bar_idx,
                                          start_time=bar['timestamp'], entry_mode=1)
             signal_log.info(f"V12 CROSS_DN @ bar#{bar_idx} price ${bar['close']:.3f} | EMA9 ${fm:.3f} < SMA400 ${sm:.3f} | watch started (SHORT)")
+            self.save_state()  # ★ watch 변경 즉시 디스크 저장
 
         # Watch 만료 체크
         if self.watch_v12.direction == 0:
             return Signal(action='NONE')
 
-        if bar_idx - self.watch_v12.start_bar > MONITOR_WIN:
+        # ★ TIME 기반 체크 (재시작 후 bar_idx 리셋 문제 해결)
+        # MONITOR_WIN = 24봉 × 15분 = 21,600초 (6시간)
+        # ENTRY_DELAY = 5봉 × 15분 = 4,500초 (75분)
+        MONITOR_WIN_SEC = MONITOR_WIN * 15 * 60
+        ENTRY_DELAY_SEC = ENTRY_DELAY * 15 * 60
+        elapsed_sec = bar['timestamp'] - self.watch_v12.start_time
+
+        if elapsed_sec > MONITOR_WIN_SEC:
             dir_str = 'LONG' if self.watch_v12.direction == 1 else 'SHORT'
-            signal_log.info(f"V12 WATCH_EXPIRED {dir_str} | {MONITOR_WIN} bars passed without entry")
+            signal_log.info(f"V12 WATCH_EXPIRED {dir_str} | {elapsed_sec/60:.0f}min (>{MONITOR_WIN_SEC/60:.0f}min) passed without entry")
             self.watch_v12 = WatchState()
+            self.save_state()  # ★ 만료 후 저장
             return Signal(action='NONE')
 
-        # Entry delay 대기
-        if bar_idx <= self.watch_v12.start_bar + ENTRY_DELAY:
+        # Entry delay 대기 (timestamp 기반, 재시작 후에도 정확)
+        if elapsed_sec <= ENTRY_DELAY_SEC:
             return Signal(action='NONE')
 
         dir_str = 'LONG' if self.watch_v12.direction == 1 else 'SHORT'
@@ -736,8 +746,9 @@ class TradingCore:
         sig.__dict__['leg2_margin'] = leg2_margin
         sig.__dict__['leg3_margin'] = leg3_margin
 
-        # Reset watch
+        # Reset watch (진입 후 저장)
         self.watch_v12 = WatchState()
+        self.save_state()  # ★ 진입 후 watch 리셋도 즉시 저장
         return sig
 
     def _check_mass_entry(self, bar: dict, bar_idx: int, capital: float, mass_index: float) -> Signal:
