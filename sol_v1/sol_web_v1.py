@@ -431,15 +431,13 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
 .legend{display:flex;gap:16px;margin-top:10px;font-size:12px;flex-wrap:wrap}
 .legend-item{display:flex;align-items:center;gap:6px}
 .legend-dot{width:12px;height:3px;border-radius:1px}
-.range-selector{display:flex;gap:4px}
-.range-btn{padding:6px 12px;background:#1a1f2e;color:#94a3b8;border:1px solid #2d3748;border-radius:6px;cursor:pointer;font-size:12px}
-.range-btn.active{background:#4ade80;color:#0a0e1a;border-color:#4ade80}
-#chart{width:100%;height:600px;background:#0a0e1a;border-radius:10px;border:1px solid #2d3748;margin-top:10px}
+#chart{width:100%;height:calc(100vh - 280px);min-height:500px;background:#0a0e1a;border-radius:10px;border:1px solid #2d3748;margin-top:10px}
 #loading{text-align:center;color:#64748b;padding:60px}
 .pos-info{background:#1a1f2e;padding:12px;border-radius:8px;border-left:4px solid #eab308;margin-top:10px;font-size:13px}
 .pos-long{border-left-color:#22c55e}
 .pos-short{border-left-color:#ef4444}
-@media (max-width:640px){#chart{height:400px}.chart-header{flex-direction:column;align-items:flex-start}}
+.hint{color:#64748b;font-size:11px;margin-left:10px}
+@media (max-width:640px){#chart{height:50vh;min-height:350px}.chart-header{flex-direction:column;align-items:flex-start}}
 </style></head>
 <body>
 <div class="topbar">
@@ -455,12 +453,9 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
 </div>
 
 <div class="chart-header">
-  <div class="chart-title">SOL/USDT 15m<span class="price" id="current-price">-</span></div>
-  <div class="range-selector">
-    <button class="range-btn" onclick="loadChart(672)">1W</button>
-    <button class="range-btn" onclick="loadChart(2880)">1M</button>
-    <button class="range-btn active" onclick="loadChart(8640)">3M</button>
-    <button class="range-btn" onclick="loadChart(17280)">6M</button>
+  <div class="chart-title">
+    SOL/USDT 15m (6개월)<span class="price" id="current-price">-</span>
+    <span class="hint">🖱 마우스 휠로 줌인/아웃, 드래그로 이동</span>
   </div>
 </div>
 
@@ -471,7 +466,7 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
   <span>Position: <b id="position-info">없음</b></span>
 </div>
 
-<div id="chart"><div id="loading">📊 차트 로딩 중... (3개월치 8,640봉)</div></div>
+<div id="chart"><div id="loading">📊 차트 로딩 중... (6개월 17,280봉)</div></div>
 
 <div class="legend">
   <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>Up Candle</div>
@@ -528,14 +523,11 @@ function initChart() {
     title: 'SMA(400)',
   });
   window.addEventListener('resize', () => {
-    chart.resize(container.clientWidth, Math.min(600, window.innerHeight - 250));
+    chart.resize(container.clientWidth, container.clientHeight);
   });
 }
 
 async function loadChart(limit) {
-  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-  event && event.target && event.target.classList.add('active');
-
   if (!chart) initChart();
   try {
     const resp = await fetch('/api/candles?limit=' + limit);
@@ -586,29 +578,32 @@ async function loadChart(limit) {
     }
     document.getElementById('bars-count').textContent = data.returned_bars + ' / ' + data.total_bars;
 
-    // 전체 데이터 범위로 스케일 맞춤
+    // 기본 표시: 최근 7일 (~672봉) — 트레이딩뷰 스타일
+    // 전체 17,280봉은 메모리에 있어 휠/드래그로 과거 탐색 가능
     if (data.candles.length > 0) {
-      const firstTime = data.candles[0].time;
-      const lastTime = data.candles[data.candles.length - 1].time;
-      chart.timeScale().setVisibleRange({ from: firstTime, to: lastTime });
-    } else {
-      chart.timeScale().fitContent();
+      const lastCandle = data.candles[data.candles.length - 1];
+      const defaultSpanSec = 7 * 24 * 3600;  // 7일
+      const fromTime = lastCandle.time - defaultSpanSec;
+      const firstCandle = data.candles[0];
+      // 데이터가 7일보다 적으면 전체
+      const effectiveFrom = fromTime < firstCandle.time ? firstCandle.time : fromTime;
+      chart.timeScale().setVisibleRange({
+        from: effectiveFrom,
+        to: lastCandle.time
+      });
     }
   } catch (e) {
     document.getElementById('chart').innerHTML = '<div id="loading">❌ 차트 로딩 실패: ' + e + '</div>';
   }
 }
 
-// 초기 로드 (3개월)
+// 초기 로드 (6개월 = 17,280봉)
 initChart();
-loadChart(8640);
+loadChart(17280);
 
-// 5분마다 자동 갱신
+// 5분마다 자동 갱신 (고정 6개월)
 setInterval(() => {
-  const activeBtn = document.querySelector('.range-btn.active');
-  const limits = {'1W':672,'1M':2880,'3M':8640,'6M':17280};
-  const lim = limits[activeBtn ? activeBtn.textContent : '3M'] || 8640;
-  loadChart(lim);
+  loadChart(17280);
 }, 300000);
 </script>
 </body></html>"""
