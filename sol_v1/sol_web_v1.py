@@ -870,12 +870,14 @@ class WebDashboard:
         else:
             f_atr_class, f_atr_text = 'pass', '✅ 정상'
 
-        # 8. Daily Loss
+        # 8. Daily Loss (daily_pct는 이 시점에 아직 계산 전이므로 인라인 계산)
         sol_daily_pnl = core.cumulative_sol_pnl - core.day_start_sol_pnl
         daily_limit_hit = core._daily_loss_exceeded(ex.balance)
+        _daily_pct_filter = ((ex.balance / core.day_start_balance - 1) * 100
+                             if core.day_start_balance > 0 else 0)
         if daily_limit_hit:
             f_dl_class, f_dl_text = 'fail', '❌ 한도 초과'
-        elif daily_pct < -1.5:
+        elif _daily_pct_filter < -1.5:
             f_dl_class, f_dl_text = 'warn', '🟡 위험 근접'
         else:
             f_dl_class, f_dl_text = 'pass', '✅ 안전'
