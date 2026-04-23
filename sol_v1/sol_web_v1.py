@@ -590,12 +590,11 @@ function initChart() {
       borderColor: '#2d3748',
       timeVisible: true,
       secondsVisible: false,
-      rightOffset: 5,        // 마지막 봉 이후 여백 5슬롯
-      barSpacing: 3,         // 기본 봉 간격 3px → 전체 화면 ~400봉 표시
-      minBarSpacing: 0.5,    // 최소 0.5px (줌 아웃 허용)
-      fixLeftEdge: false,    // 과거 스크롤 허용
-      fixRightEdge: false,
+      barSpacing: 6,         // ETH V8과 동일 (데스크탑 기준)
+      rightOffset: 5,
     },
+    handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+    handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
     height: Math.min(600, window.innerHeight - 250),
   });
   candleSeries = chart.addCandlestickSeries({
@@ -667,38 +666,29 @@ async function loadChart(limit) {
     }
     document.getElementById('bars-count').textContent = data.returned_bars + ' / ' + data.total_bars;
 
-    // 기본 표시: 최근 3일 (~288봉) — 화면 크기에 맞춘 조밀 표시
-    // 전체 17,280봉은 메모리에 있어 휠/드래그로 과거 탐색 가능
+    // ETH V8 방식: 단순한 setVisibleLogicalRange 1회 호출
+    // 최근 120봉 (30시간 = 15m × 120) 표시, 과거는 휠/드래그로
     if (data.candles.length > 0) {
-      const totalBars = data.candles.length;
-      // 초기 표시 3일 (288봉) — barSpacing 3px에 맞춰 화면 너비(~1200px)에 ~400슬롯
-      const defaultBars = 3 * 24 * 4;  // 3일 × 96봉 = 288봉
-      // 다중 시점 적용 (setData 후 차트 내부 상태 안정화 대기)
-      const applyRange = () => {
-        try {
-          chart.timeScale().setVisibleLogicalRange({
-            from: Math.max(0, totalBars - defaultBars),
-            to: totalBars + 5  // 우측 여백
-          });
-        } catch(e) { console.warn('setVisibleLogicalRange:', e); }
-      };
-      // 3단계 적용: 즉시 + 다음 프레임 + 150ms 후 (가장 안정적인 타이밍)
-      applyRange();
-      requestAnimationFrame(applyRange);
-      setTimeout(applyRange, 150);
+      const isMobile = window.innerWidth < 768;
+      const visibleBars = isMobile ? 60 : 120;
+      chart.timeScale().setVisibleLogicalRange({
+        from: Math.max(0, data.candles.length - visibleBars),
+        to: data.candles.length + 3,
+      });
     }
   } catch (e) {
     document.getElementById('chart').innerHTML = '<div id="loading">❌ 차트 로딩 실패: ' + e + '</div>';
   }
 }
 
-// 초기 로드 (6개월 = 17,280봉)
+// 초기 로드 (ETH V8 방식: 500봉 = 약 5일, 충분히 부드러움)
+// 6개월 전체는 서버 메모리에 있어 필요 시 확장 가능
 initChart();
-loadChart(17280);
+loadChart(500);
 
-// 5분마다 자동 갱신 (고정 6개월)
+// 5분마다 자동 갱신
 setInterval(() => {
-  loadChart(17280);
+  loadChart(500);
 }, 300000);
 </script>
 </body></html>"""
