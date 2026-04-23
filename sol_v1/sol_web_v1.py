@@ -590,6 +590,11 @@ function initChart() {
       borderColor: '#2d3748',
       timeVisible: true,
       secondsVisible: false,
+      rightOffset: 5,        // 마지막 봉 이후 여백 5슬롯
+      barSpacing: 3,         // 기본 봉 간격 3px → 전체 화면 ~400봉 표시
+      minBarSpacing: 0.5,    // 최소 0.5px (줌 아웃 허용)
+      fixLeftEdge: false,    // 과거 스크롤 허용
+      fixRightEdge: false,
     },
     height: Math.min(600, window.innerHeight - 250),
   });
@@ -662,21 +667,25 @@ async function loadChart(limit) {
     }
     document.getElementById('bars-count').textContent = data.returned_bars + ' / ' + data.total_bars;
 
-    // 기본 표시: 최근 7일 (~672봉) — 트레이딩뷰 스타일
+    // 기본 표시: 최근 3일 (~288봉) — 화면 크기에 맞춘 조밀 표시
     // 전체 17,280봉은 메모리에 있어 휠/드래그로 과거 탐색 가능
-    // setVisibleLogicalRange (bar index 기반) 사용 → 대용량 데이터에서도 안정적
     if (data.candles.length > 0) {
       const totalBars = data.candles.length;
-      const defaultBars = 7 * 24 * 4;  // 7일 × 96봉(15m) = 672봉
-      const fromIndex = Math.max(0, totalBars - defaultBars);
-      const toIndex = totalBars - 1;
-      // 렌더링 완료 후 범위 설정 (setData 직후 호출 시 무시되는 경우 방지)
-      requestAnimationFrame(() => {
-        chart.timeScale().setVisibleLogicalRange({
-          from: fromIndex,
-          to: toIndex + 2  // 우측 여백 2봉
-        });
-      });
+      // 초기 표시 3일 (288봉) — barSpacing 3px에 맞춰 화면 너비(~1200px)에 ~400슬롯
+      const defaultBars = 3 * 24 * 4;  // 3일 × 96봉 = 288봉
+      // 다중 시점 적용 (setData 후 차트 내부 상태 안정화 대기)
+      const applyRange = () => {
+        try {
+          chart.timeScale().setVisibleLogicalRange({
+            from: Math.max(0, totalBars - defaultBars),
+            to: totalBars + 5  // 우측 여백
+          });
+        } catch(e) { console.warn('setVisibleLogicalRange:', e); }
+      };
+      // 3단계 적용: 즉시 + 다음 프레임 + 150ms 후 (가장 안정적인 타이밍)
+      applyRange();
+      requestAnimationFrame(applyRange);
+      setTimeout(applyRange, 150);
     }
   } catch (e) {
     document.getElementById('chart').innerHTML = '<div id="loading">❌ 차트 로딩 실패: ' + e + '</div>';
