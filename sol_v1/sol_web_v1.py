@@ -538,8 +538,8 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
 
 <div class="chart-header">
   <div class="chart-title">
-    SOL/USDT 15m (6개월)<span class="price" id="current-price">-</span>
-    <span class="hint">🖱 마우스 휠로 줌인/아웃, 드래그로 이동</span>
+    SOL/USDT 15m (6개월 17,280봉)<span class="price" id="current-price">-</span>
+    <span class="hint">🖱 마우스 휠로 줌인/아웃, 드래그로 이동 (최근 120봉 기본 표시)</span>
   </div>
 </div>
 
@@ -681,14 +681,14 @@ async function loadChart(limit) {
   }
 }
 
-// 초기 로드 (ETH V8 방식: 500봉 = 약 5일, 충분히 부드러움)
-// 6개월 전체는 서버 메모리에 있어 필요 시 확장 가능
+// 초기 로드: 6개월 전체(17,280봉) 로드, 기본 120봉만 visible
+// 휠/드래그로 과거 6개월 스크롤 가능
 initChart();
-loadChart(500);
+loadChart(17280);
 
 // 5분마다 자동 갱신
 setInterval(() => {
-  loadChart(500);
+  loadChart(17280);
 }, 300000);
 </script>
 </body></html>"""
@@ -1473,8 +1473,8 @@ class WebDashboard:
             })
 
         @self.app.get('/api/candles')
-        async def api_candles(request: Request, limit: int = 8640):
-            """15분봉 캔들 + EMA9/SMA400 (기본 3개월 = 8640봉)"""
+        async def api_candles(request: Request, limit: int = 17280):
+            """15분봉 캔들 + EMA9/SMA400 (기본 6개월 = 17,280봉)"""
             if not self._is_auth(request):
                 return JSONResponse({'error': 'unauthorized'}, status_code=401)
             try:
