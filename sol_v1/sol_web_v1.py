@@ -94,6 +94,7 @@ tr:hover{background:rgba(255,255,255,0.02)}
 .status-warn{color:#eab308}
 .verdict{padding:12px;border-radius:8px;margin-top:12px;text-align:center;font-size:13px;font-weight:600}
 .verdict.block{background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3)}
+.verdict.warn{background:rgba(234,179,8,0.1);color:#eab308;border:1px solid rgba(234,179,8,0.3)}
 .verdict.ready{background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.3)}
 .section-title{font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 8px}
 .cross-indicator{padding:10px;background:#0f172a;border-radius:6px;margin-top:8px;font-size:13px}
@@ -834,24 +835,31 @@ class WebDashboard:
             f_same_class, f_same_text = 'warn', '⚠ SHORT 진입만 차단'
 
         # 5. Watch_v12
+        from sol_core_v1 import MONITOR_WIN, ENTRY_DELAY, SKIP_SAME_DIR
         w = core.watch_v12
+        bars_since_cross = -1   # -1: no watch
+        watch_expired = False
+        watch_delay_active = False
+        watch_active = False
         if w.direction == 0:
             watch_txt = "대기 중 (cross 미감지)"
             f_watch_class, f_watch_text = 'fail', '⏳ Cross 대기'
         else:
-            bar_idx = data.get_latest_index() if data else 0
-            bars_since = bar_idx - w.start_bar
+            bar_idx_now = data.get_latest_index() if data else 0
+            bars_since_cross = bar_idx_now - w.start_bar
             watch_dir = 'LONG' if w.direction == 1 else 'SHORT'
-            from sol_core_v1 import MONITOR_WIN, ENTRY_DELAY
-            if bars_since > MONITOR_WIN:
-                watch_txt = f"{watch_dir} 만료 ({bars_since}봉)"
+            if bars_since_cross > MONITOR_WIN:
+                watch_txt = f"{watch_dir} 만료 ({bars_since_cross}봉)"
                 f_watch_class, f_watch_text = 'fail', '❌ Window 초과'
-            elif bars_since <= ENTRY_DELAY:
-                watch_txt = f"{watch_dir} delay {bars_since}/{ENTRY_DELAY}"
+                watch_expired = True
+            elif bars_since_cross <= ENTRY_DELAY:
+                watch_txt = f"{watch_dir} delay {bars_since_cross}/{ENTRY_DELAY}"
                 f_watch_class, f_watch_text = 'warn', '⏱ Delay 대기'
+                watch_delay_active = True
             else:
-                watch_txt = f"{watch_dir} 진입 가능 ({bars_since}봉)"
+                watch_txt = f"{watch_dir} 진입 가능 ({bars_since_cross}봉)"
                 f_watch_class, f_watch_text = 'pass', '✅ 활성'
+                watch_active = True
 
         # 6. Mass Index
         if core.mass_bulge_active:
@@ -900,35 +908,73 @@ class WebDashboard:
             f_mutex_class, f_mutex_text = 'pass', '✅ 진입 가능'
 
         # === 진입 판정 ===
-        v12_reasons = []
-        if adx_val < ADX_MIN: v12_reasons.append(f'ADX {adx_val:.1f}<22')
-        if not (RSI_MIN <= rsi_val <= RSI_MAX): v12_reasons.append(f'RSI {rsi_val:.1f}범위밖')
-        if not (LR_MIN <= lr_v <= LR_MAX): v12_reasons.append(f'LR{lr_v:+.2f}범위밖')
-        if w.direction == 0: v12_reasons.append('Cross 미감지')
-        if core.skip_remaining > 0: v12_reasons.append('Skip2 active')
-        if core.has_position: v12_reasons.append('포지션 중')
-        if daily_limit_hit: v12_reasons.append('Daily Loss')
+        # v12_reasons: 진입 차단 사유 (시간 경과로 해결 가능 / 조건 변화 필요 구분)
+        v12_timing_blocks = []     # 시간 지나면 자동 해결 (Delay)
+        v12_filter_blocks = []     # 지표 값이 변해야 해결 (RSI, ADX, LR)
+        v12_hard_blocks = []       # 새 Cross 또는 리셋 필요
+
+        # Watch 상태 차단
+        if w.direction == 0:
+            v12_hard_blocks.append('Cross 미감지')
+        elif watch_expired:
+            v12_hard_blocks.append(f'Window 만료({bars_since_cross}봉)')
+        elif watch_delay_active:
+            v12_timing_blocks.append(f'Entry Delay {bars_since_cross}/{ENTRY_DELAY}봉')
+
+        # Skip Same Direction (watch 있을 때만)
+        if w.direction != 0 and SKIP_SAME_DIR and w.direction == core.last_exit_dir:
+            v12_hard_blocks.append('Skip Same 방향')
+
+        # 5중 필터 차단
+        if adx_val < ADX_MIN:
+            v12_filter_blocks.append(f'ADX {adx_val:.1f}<22')
+        if not (RSI_MIN <= rsi_val <= RSI_MAX):
+            v12_filter_blocks.append(f'RSI {rsi_val:.1f}범위밖')
+        if not (LR_MIN <= lr_v <= LR_MAX):
+            v12_filter_blocks.append(f'LR{lr_v:+.2f}범위밖')
+
+        # Gate 차단 (최상위 블록)
+        gate_block = None
+        if core.has_position:
+            gate_block = ('pos', '📍 포지션 보유 중 — 신규 진입 차단 (Mutex)')
+        elif daily_limit_hit:
+            gate_block = ('dl', '🛑 Daily Loss 한도 도달 — 당일 거래 중지')
+        elif core.skip_remaining > 0:
+            gate_block = ('skip', f'⏸ Skip2@4loss 발동 — {core.skip_remaining}거래 후 재개')
 
         mass_ok = core.mass_bulge_active and mass_val < MASS_REVERSAL_THRESHOLD
 
-        if core.has_position:
+        # 최종 판정 (우선순위)
+        if gate_block:
             verdict_class = 'block'
-            verdict_text = f'📍 포지션 보유 중 — 신규 진입 차단 (Mutex)'
-        elif daily_limit_hit:
-            verdict_class = 'block'
-            verdict_text = f'🛑 Daily Loss 한도 도달 — 당일 거래 중지'
-        elif core.skip_remaining > 0:
-            verdict_class = 'block'
-            verdict_text = f'⏸ Skip2@4loss 발동 — {core.skip_remaining}거래 후 재개'
-        elif not v12_reasons and not mass_ok:
-            verdict_class = 'ready'
-            verdict_text = f'🟢 V12 진입 준비 완료 (watch {watch_txt})'
+            verdict_text = gate_block[1]
         elif mass_ok:
             verdict_class = 'ready'
-            verdict_text = f'🟢 Mass 반전 트리거! 다음 틱 진입 예정'
-        else:
+            verdict_text = '🟢 Mass 반전 트리거! 다음 틱 진입 예정'
+        elif not v12_timing_blocks and not v12_filter_blocks and not v12_hard_blocks:
+            # 모든 V12 조건 충족 → 다음 봉 마감 시 진입
+            verdict_class = 'ready'
+            verdict_text = f'🟢 V12 진입 준비 완료 — 다음 15m 봉 마감 시 진입 체결 ({watch_txt})'
+        elif v12_timing_blocks and not v12_filter_blocks and not v12_hard_blocks:
+            # 시간만 지나면 자동 진입 가능 (지표는 모두 통과)
+            verdict_class = 'warn'
+            remain = ENTRY_DELAY - bars_since_cross + 1
+            verdict_text = (f'⏱ V12 {v12_timing_blocks[0]} — '
+                            f'{remain}봉({remain*15}분) 후 평가 시작 (지표 모두 통과 중)')
+        elif v12_timing_blocks and v12_filter_blocks:
+            # Delay + 필터 둘 다 차단
             verdict_class = 'block'
-            verdict_text = f'⏳ V12 차단 ({", ".join(v12_reasons[:3])}) | Mass ⏳ bulge 대기'
+            verdict_text = (f'⏳ V12 이중 차단: {v12_timing_blocks[0]} + '
+                            f'필터({", ".join(v12_filter_blocks[:2])}) | Mass ⏳ bulge 대기')
+        elif v12_hard_blocks:
+            # Cross 미감지 또는 Window 만료
+            verdict_class = 'block'
+            verdict_text = f'⏳ V12 차단 ({", ".join(v12_hard_blocks[:2])}) | Mass ⏳ bulge 대기'
+        else:
+            # 필터 차단만 (시간 + Watch OK)
+            verdict_class = 'block'
+            verdict_text = (f'⏳ V12 필터 차단 ({", ".join(v12_filter_blocks[:3])}) | '
+                            f'Watch: {watch_txt} | Mass ⏳ bulge 대기')
 
         # Daily
         daily_pnl = ex.balance - core.day_start_balance if core.day_start_balance > 0 else 0
