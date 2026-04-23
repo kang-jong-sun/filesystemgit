@@ -36,8 +36,8 @@ TIMEFRAME_BTC = '1h'
 
 FAST_MA = 9            # EMA(9)
 SLOW_MA = 400          # SMA(400)
-ADX_PERIOD = 14
-RSI_PERIOD = 14
+ADX_PERIOD = 20        # Wilder (TradingView 기준 + V12.1 백테스트 일치)
+RSI_PERIOD = 10        # Wilder (TradingView 기준 + V12.1 백테스트 일치)
 LR_PERIOD = 14
 ATR_PERIOD = 14
 ATR50_PERIOD = 50
@@ -414,14 +414,19 @@ class DataCollector:
         return pd.Series(arr).ewm(span=period, adjust=False).mean().values
 
     @staticmethod
-    def _rsi(c: np.ndarray, period: int = 14) -> np.ndarray:
-        delta = np.diff(c, prepend=c[0])
-        gain = np.where(delta > 0, delta, 0.0)
-        loss = np.where(delta < 0, -delta, 0.0)
-        ag = pd.Series(gain).rolling(period).mean().values
-        al = pd.Series(loss).rolling(period).mean().values
-        rsi = 100 - 100 / (1 + ag / (al + 1e-10))
-        return rsi
+    def _rsi(c: np.ndarray, period: int = 10) -> np.ndarray:
+        """Wilder's smoothing RSI (TradingView 기본값 + V12.1 백테스트 일치).
+        alpha = 1/period, min_periods=period 로 pandas ewm 사용.
+        """
+        series = pd.Series(c)
+        d = series.diff()
+        g = d.where(d > 0, 0.0)
+        l = (-d).where(d < 0, 0.0)
+        a = 1.0 / period
+        ag = g.ewm(alpha=a, min_periods=period, adjust=False).mean()
+        al = l.ewm(alpha=a, min_periods=period, adjust=False).mean()
+        rsi = 100 - 100 / (1 + ag / al.replace(0, 1e-10))
+        return rsi.fillna(50).values.astype(np.float64)
 
     @staticmethod
     def _atr(h: np.ndarray, l: np.ndarray, c: np.ndarray, period: int = 14) -> np.ndarray:
@@ -430,21 +435,33 @@ class DataCollector:
         return pd.Series(tr).rolling(period).mean().values
 
     @staticmethod
-    def _adx(h: np.ndarray, l: np.ndarray, c: np.ndarray, period: int = 14) -> np.ndarray:
-        n = len(c)
-        up = h - np.roll(h, 1)
-        dn = np.roll(l, 1) - l
-        up[0] = 0; dn[0] = 0
-        pdm = np.where((up > dn) & (up > 0), up, 0.0)
-        mdm = np.where((dn > up) & (dn > 0), dn, 0.0)
-        tr = np.maximum(h - l, np.maximum(np.abs(h - np.roll(c, 1)), np.abs(l - np.roll(c, 1))))
-        tr[0] = h[0] - l[0]
-        atr_w = pd.Series(tr).rolling(period).mean().values
-        pdi = 100 * pd.Series(pdm).rolling(period).mean().values / (atr_w + 1e-10)
-        mdi = 100 * pd.Series(mdm).rolling(period).mean().values / (atr_w + 1e-10)
-        dx = 100 * np.abs(pdi - mdi) / (pdi + mdi + 1e-10)
-        adx = pd.Series(dx).rolling(period).mean().values
-        return adx
+    def _adx(h: np.ndarray, l: np.ndarray, c: np.ndarray, period: int = 20) -> np.ndarray:
+        """Wilder's smoothing ADX (TradingView 기본값 + V12.1 백테스트 일치).
+        alpha = 1/period, ATR/+DI/-DI/ADX 모두 Wilder ewm 사용.
+        """
+        h_s = pd.Series(h); l_s = pd.Series(l); c_s = pd.Series(c)
+        a = 1.0 / period
+
+        # True Range
+        tr = pd.concat([
+            h_s - l_s,
+            (h_s - c_s.shift(1)).abs(),
+            (l_s - c_s.shift(1)).abs()
+        ], axis=1).max(axis=1)
+
+        # Directional Movement
+        up = h_s - h_s.shift(1)
+        dn = l_s.shift(1) - l_s
+        pdm = pd.Series(np.where((up > dn) & (up > 0), up, 0.0), index=c_s.index)
+        mdm = pd.Series(np.where((dn > up) & (dn > 0), dn, 0.0), index=c_s.index)
+
+        # Wilder 평활 (ewm alpha=1/period)
+        atr_w = tr.ewm(alpha=a, min_periods=period, adjust=False).mean()
+        pdi = 100 * pdm.ewm(alpha=a, min_periods=period, adjust=False).mean() / atr_w
+        mdi = 100 * mdm.ewm(alpha=a, min_periods=period, adjust=False).mean() / atr_w
+        dx = 100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, 1e-10)
+        adx = dx.ewm(alpha=a, min_periods=period, adjust=False).mean()
+        return adx.fillna(0).values.astype(np.float64)
 
     @staticmethod
     def _lr_slope(c: np.ndarray, period: int = 14) -> np.ndarray:
