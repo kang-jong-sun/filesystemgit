@@ -80,6 +80,23 @@ tr:hover{background:rgba(255,255,255,0.02)}
 .bar-red{background:linear-gradient(90deg,#ef4444,#b91c1c)}
 .logout{color:#64748b;text-decoration:none;font-size:13px;padding:6px 12px;border-radius:6px}
 .logout:hover{background:#1e293b;color:#ef4444}
+.filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:10px}
+.filter-cell{background:#0f172a;padding:12px;border-radius:8px;border-left:3px solid #64748b}
+.filter-cell.pass{border-left-color:#22c55e;background:rgba(34,197,94,0.05)}
+.filter-cell.fail{border-left-color:#ef4444;background:rgba(239,68,68,0.05)}
+.filter-cell.warn{border-left-color:#eab308;background:rgba(234,179,8,0.05)}
+.filter-label{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.3px}
+.filter-value{font-size:18px;font-weight:bold;margin-top:4px}
+.filter-cond{font-size:10px;color:#64748b;margin-top:3px}
+.filter-status{font-size:12px;margin-top:4px;font-weight:600}
+.status-pass{color:#22c55e}
+.status-fail{color:#ef4444}
+.status-warn{color:#eab308}
+.verdict{padding:12px;border-radius:8px;margin-top:12px;text-align:center;font-size:13px;font-weight:600}
+.verdict.block{background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3)}
+.verdict.ready{background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.3)}
+.section-title{font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 8px}
+.cross-indicator{padding:10px;background:#0f172a;border-radius:6px;margin-top:8px;font-size:13px}
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #2d3748}
 .brand{color:#4ade80;font-size:22px;font-weight:bold}
 .nav{display:flex;gap:4px}
@@ -147,20 +164,86 @@ tr:hover{background:rgba(255,255,255,0.02)}
 %%POSITION_BLOCK%%
 
 <div class="card" style="margin-top:15px">
-  <h3>📡 현재 지표 (15m)</h3>
-  <table>
-    <tr><th>EMA(9)</th><th>SMA(400)</th><th>ADX</th><th>RSI</th><th>LR Slope</th><th>Mass Index</th><th>ATR14</th><th>ATR50</th></tr>
-    <tr>
-      <td>$%%EMA9%%</td>
-      <td>$%%SMA400%%</td>
-      <td class="%%ADX_CLASS%%">%%ADX%%</td>
-      <td class="%%RSI_CLASS%%">%%RSI%%</td>
-      <td>%%LR%%</td>
-      <td class="%%MASS_CLASS%%">%%MASS%%</td>
-      <td>%%ATR14%%</td>
-      <td>%%ATR50%%</td>
-    </tr>
-  </table>
+  <h3>📡 현재 지표 + V12/Mass 필터 상태 (15m)</h3>
+
+  <div class="cross-indicator">
+    <b>추세 감지:</b> EMA9 <span style="color:#facc15">$%%EMA9%%</span> %%CROSS_SIGN%% SMA400 <span style="color:#f97316">$%%SMA400%%</span>
+    → %%CROSS_DIR%%
+  </div>
+
+  <div class="section-title">V12 5중 필터</div>
+  <div class="filter-grid">
+    <div class="filter-cell %%F_ADX_CLASS%%">
+      <div class="filter-label">ADX</div>
+      <div class="filter-value">%%ADX%%</div>
+      <div class="filter-cond">필요: ≥ 22 (추세 강도)</div>
+      <div class="filter-status status-%%F_ADX_CLASS%%">%%F_ADX_TEXT%%</div>
+    </div>
+    <div class="filter-cell %%F_RSI_CLASS%%">
+      <div class="filter-label">RSI</div>
+      <div class="filter-value">%%RSI%%</div>
+      <div class="filter-cond">필요: 30 ~ 65 (중립)</div>
+      <div class="filter-status status-%%F_RSI_CLASS%%">%%F_RSI_TEXT%%</div>
+    </div>
+    <div class="filter-cell %%F_LR_CLASS%%">
+      <div class="filter-label">LR Slope</div>
+      <div class="filter-value">%%LR%%</div>
+      <div class="filter-cond">필요: -0.5 ~ +0.5</div>
+      <div class="filter-status status-%%F_LR_CLASS%%">%%F_LR_TEXT%%</div>
+    </div>
+    <div class="filter-cell %%F_SAME_CLASS%%">
+      <div class="filter-label">Skip Same</div>
+      <div class="filter-value" style="font-size:14px">%%LAST_EXIT_TXT%%</div>
+      <div class="filter-cond">이전 방향 재진입 차단</div>
+      <div class="filter-status status-%%F_SAME_CLASS%%">%%F_SAME_TEXT%%</div>
+    </div>
+    <div class="filter-cell %%F_WATCH_CLASS%%">
+      <div class="filter-label">Watch (V12)</div>
+      <div class="filter-value" style="font-size:14px">%%WATCH_TXT%%</div>
+      <div class="filter-cond">Cross 감지 / Entry Delay 5봉</div>
+      <div class="filter-status status-%%F_WATCH_CLASS%%">%%F_WATCH_TEXT%%</div>
+    </div>
+  </div>
+
+  <div class="section-title">Mass Index & ATR Defense</div>
+  <div class="filter-grid">
+    <div class="filter-cell %%F_MASS_CLASS%%">
+      <div class="filter-label">Mass Index</div>
+      <div class="filter-value">%%MASS%%</div>
+      <div class="filter-cond">Bulge: ≥ 27 → < 26.5 (반전)</div>
+      <div class="filter-status status-%%F_MASS_CLASS%%">%%F_MASS_TEXT%%</div>
+    </div>
+    <div class="filter-cell %%F_ATR_CLASS%%">
+      <div class="filter-label">ATR14 / ATR50</div>
+      <div class="filter-value">%%ATR_RATIO%%</div>
+      <div class="filter-cond">&lt; 1.5x (정상) / ≥ 1.5x (margin flat)</div>
+      <div class="filter-status status-%%F_ATR_CLASS%%">%%F_ATR_TEXT%%</div>
+    </div>
+  </div>
+
+  <div class="section-title">게이트 (일일 손실 / Skip2@4loss / Mutex)</div>
+  <div class="filter-grid">
+    <div class="filter-cell %%F_DL_CLASS%%">
+      <div class="filter-label">일일 손실</div>
+      <div class="filter-value" style="font-size:14px">%%DAILY_PCT%%%</div>
+      <div class="filter-cond">한도: ≤ -2.5%</div>
+      <div class="filter-status status-%%F_DL_CLASS%%">%%F_DL_TEXT%%</div>
+    </div>
+    <div class="filter-cell %%F_SKIP_CLASS%%">
+      <div class="filter-label">Skip2@4loss</div>
+      <div class="filter-value" style="font-size:14px">%%CONSEC%%/4 · skip %%SKIP%%</div>
+      <div class="filter-cond">4연패 → 2거래 스킵</div>
+      <div class="filter-status status-%%F_SKIP_CLASS%%">%%F_SKIP_TEXT%%</div>
+    </div>
+    <div class="filter-cell %%F_MUTEX_CLASS%%">
+      <div class="filter-label">Mutex</div>
+      <div class="filter-value" style="font-size:14px">%%POS_STATE%%</div>
+      <div class="filter-cond">포지션 보유 중엔 신규 차단</div>
+      <div class="filter-status status-%%F_MUTEX_CLASS%%">%%F_MUTEX_TEXT%%</div>
+    </div>
+  </div>
+
+  <div class="verdict %%VERDICT_CLASS%%">%%VERDICT_TEXT%%</div>
 </div>
 
 <div class="card" style="margin-top:15px">
@@ -703,6 +786,148 @@ class WebDashboard:
         mass_val = ind.get('mass', 0) or 0
         mass_class = 'win' if mass_val > 27 else ''
 
+        # ═══════════════════════════════════════════════════════════
+        # V12/Mass 필터 상태 계산
+        # ═══════════════════════════════════════════════════════════
+        from sol_core_v1 import (ADX_MIN, RSI_MIN, RSI_MAX, LR_MIN, LR_MAX,
+                                  MASS_BULGE_THRESHOLD, MASS_REVERSAL_THRESHOLD,
+                                  ATR_EXPANSION_THRESHOLD, DAILY_LOSS_LIMIT)
+        ema9_v = ind.get('fast_ma', 0) or 0
+        sma400_v = ind.get('slow_ma', 0) or 0
+        lr_v = ind.get('lr_slope', 0) or 0
+        atr14_v = ind.get('atr14', 0) or 0
+        atr50_v = ind.get('atr50', 0.01) or 0.01
+
+        # Cross 상태
+        if ema9_v > sma400_v:
+            cross_sign = '&gt;'
+            cross_dir = '<span class="win">📈 LONG 방향 (EMA9 위)</span>'
+        elif ema9_v < sma400_v:
+            cross_sign = '&lt;'
+            cross_dir = '<span class="lose">📉 SHORT 방향 (EMA9 아래)</span>'
+        else:
+            cross_sign = '='
+            cross_dir = '<span class="warn">— 중립</span>'
+
+        def _fp(ok): return ('pass', '✅ 통과') if ok else ('fail', '❌ 차단')
+        def _fw(ok, warn_ok): return ('pass', '✅ 통과') if ok else (('warn', '🟡 대기') if warn_ok else ('fail', '❌ 차단'))
+
+        # 1. ADX
+        f_adx_class, f_adx_text = _fp(adx_val >= ADX_MIN)
+
+        # 2. RSI
+        f_rsi_class, f_rsi_text = _fp(RSI_MIN <= rsi_val <= RSI_MAX)
+
+        # 3. LR Slope
+        f_lr_class, f_lr_text = _fp(LR_MIN <= lr_v <= LR_MAX)
+
+        # 4. Skip Same Direction
+        last_exit = core.last_exit_dir
+        if last_exit == 0:
+            last_exit_txt = "없음 (첫 거래)"
+            f_same_class, f_same_text = 'pass', '✅ 제약 없음'
+        elif last_exit == 1:
+            last_exit_txt = "LONG (↑ 차단)"
+            f_same_class, f_same_text = 'warn', '⚠ LONG 진입만 차단'
+        else:
+            last_exit_txt = "SHORT (↓ 차단)"
+            f_same_class, f_same_text = 'warn', '⚠ SHORT 진입만 차단'
+
+        # 5. Watch_v12
+        w = core.watch_v12
+        if w.direction == 0:
+            watch_txt = "대기 중 (cross 미감지)"
+            f_watch_class, f_watch_text = 'fail', '⏳ Cross 대기'
+        else:
+            bar_idx = data.get_latest_index() if data else 0
+            bars_since = bar_idx - w.start_bar
+            watch_dir = 'LONG' if w.direction == 1 else 'SHORT'
+            from sol_core_v1 import MONITOR_WIN, ENTRY_DELAY
+            if bars_since > MONITOR_WIN:
+                watch_txt = f"{watch_dir} 만료 ({bars_since}봉)"
+                f_watch_class, f_watch_text = 'fail', '❌ Window 초과'
+            elif bars_since <= ENTRY_DELAY:
+                watch_txt = f"{watch_dir} delay {bars_since}/{ENTRY_DELAY}"
+                f_watch_class, f_watch_text = 'warn', '⏱ Delay 대기'
+            else:
+                watch_txt = f"{watch_dir} 진입 가능 ({bars_since}봉)"
+                f_watch_class, f_watch_text = 'pass', '✅ 활성'
+
+        # 6. Mass Index
+        if core.mass_bulge_active:
+            if mass_val < MASS_REVERSAL_THRESHOLD:
+                f_mass_class, f_mass_text = 'pass', '✅ 반전 트리거!'
+            else:
+                f_mass_class, f_mass_text = 'warn', '🟡 Bulge 형성 중'
+        else:
+            f_mass_class, f_mass_text = 'fail', '⏳ Bulge 대기 (<27)'
+
+        # 7. ATR Expansion
+        atr_ratio = atr14_v / atr50_v if atr50_v > 0 else 0
+        atr_expanded = atr_ratio >= ATR_EXPANSION_THRESHOLD
+        if atr_expanded:
+            f_atr_class, f_atr_text = 'warn', '⚠ Margin flat'
+        else:
+            f_atr_class, f_atr_text = 'pass', '✅ 정상'
+
+        # 8. Daily Loss
+        sol_daily_pnl = core.cumulative_sol_pnl - core.day_start_sol_pnl
+        daily_limit_hit = core._daily_loss_exceeded(ex.balance)
+        if daily_limit_hit:
+            f_dl_class, f_dl_text = 'fail', '❌ 한도 초과'
+        elif daily_pct < -1.5:
+            f_dl_class, f_dl_text = 'warn', '🟡 위험 근접'
+        else:
+            f_dl_class, f_dl_text = 'pass', '✅ 안전'
+
+        # 9. Skip2@4loss
+        if core.skip_remaining > 0:
+            f_skip_class, f_skip_text = 'fail', f'❌ {core.skip_remaining}거래 스킵'
+        elif core.consec_losses >= 3:
+            f_skip_class, f_skip_text = 'warn', '⚠ 1패 더하면 스킵'
+        else:
+            f_skip_class, f_skip_text = 'pass', '✅ 정상'
+
+        # 10. Mutex
+        if core.has_position:
+            p = core.position
+            pos_state = f"{'V12' if p.entry_mode == 1 else 'MASS'} {'LONG' if p.direction == 1 else 'SHORT'} 보유"
+            f_mutex_class, f_mutex_text = 'fail', '❌ 포지션 보유 중'
+        else:
+            pos_state = "없음"
+            f_mutex_class, f_mutex_text = 'pass', '✅ 진입 가능'
+
+        # === 진입 판정 ===
+        v12_reasons = []
+        if adx_val < ADX_MIN: v12_reasons.append(f'ADX {adx_val:.1f}<22')
+        if not (RSI_MIN <= rsi_val <= RSI_MAX): v12_reasons.append(f'RSI {rsi_val:.1f}범위밖')
+        if not (LR_MIN <= lr_v <= LR_MAX): v12_reasons.append(f'LR{lr_v:+.2f}범위밖')
+        if w.direction == 0: v12_reasons.append('Cross 미감지')
+        if core.skip_remaining > 0: v12_reasons.append('Skip2 active')
+        if core.has_position: v12_reasons.append('포지션 중')
+        if daily_limit_hit: v12_reasons.append('Daily Loss')
+
+        mass_ok = core.mass_bulge_active and mass_val < MASS_REVERSAL_THRESHOLD
+
+        if core.has_position:
+            verdict_class = 'block'
+            verdict_text = f'📍 포지션 보유 중 — 신규 진입 차단 (Mutex)'
+        elif daily_limit_hit:
+            verdict_class = 'block'
+            verdict_text = f'🛑 Daily Loss 한도 도달 — 당일 거래 중지'
+        elif core.skip_remaining > 0:
+            verdict_class = 'block'
+            verdict_text = f'⏸ Skip2@4loss 발동 — {core.skip_remaining}거래 후 재개'
+        elif not v12_reasons and not mass_ok:
+            verdict_class = 'ready'
+            verdict_text = f'🟢 V12 진입 준비 완료 (watch {watch_txt})'
+        elif mass_ok:
+            verdict_class = 'ready'
+            verdict_text = f'🟢 Mass 반전 트리거! 다음 틱 진입 예정'
+        else:
+            verdict_class = 'block'
+            verdict_text = f'⏳ V12 차단 ({", ".join(v12_reasons[:3])}) | Mass ⏳ bulge 대기'
+
         # Daily
         daily_pnl = ex.balance - core.day_start_balance if core.day_start_balance > 0 else 0
         daily_pct = (ex.balance / core.day_start_balance - 1) * 100 if core.day_start_balance > 0 else 0
@@ -820,6 +1045,35 @@ class WebDashboard:
             '%%ATR14%%': safe_num(ind.get('atr14', 0), 4),
             '%%ATR50%%': safe_num(ind.get('atr50', 0), 4),
             '%%TRADES_ROWS%%': trades_rows,
+            # ── 필터 상태 필드 ──
+            '%%CROSS_SIGN%%': cross_sign,
+            '%%CROSS_DIR%%': cross_dir,
+            '%%F_ADX_CLASS%%': f_adx_class,
+            '%%F_ADX_TEXT%%': f_adx_text,
+            '%%F_RSI_CLASS%%': f_rsi_class,
+            '%%F_RSI_TEXT%%': f_rsi_text,
+            '%%F_LR_CLASS%%': f_lr_class,
+            '%%F_LR_TEXT%%': f_lr_text,
+            '%%F_SAME_CLASS%%': f_same_class,
+            '%%F_SAME_TEXT%%': f_same_text,
+            '%%LAST_EXIT_TXT%%': last_exit_txt,
+            '%%F_WATCH_CLASS%%': f_watch_class,
+            '%%F_WATCH_TEXT%%': f_watch_text,
+            '%%WATCH_TXT%%': watch_txt,
+            '%%F_MASS_CLASS%%': f_mass_class,
+            '%%F_MASS_TEXT%%': f_mass_text,
+            '%%F_ATR_CLASS%%': f_atr_class,
+            '%%F_ATR_TEXT%%': f_atr_text,
+            '%%ATR_RATIO%%': f"{atr_ratio:.2f}x",
+            '%%F_DL_CLASS%%': f_dl_class,
+            '%%F_DL_TEXT%%': f_dl_text,
+            '%%F_SKIP_CLASS%%': f_skip_class,
+            '%%F_SKIP_TEXT%%': f_skip_text,
+            '%%F_MUTEX_CLASS%%': f_mutex_class,
+            '%%F_MUTEX_TEXT%%': f_mutex_text,
+            '%%POS_STATE%%': pos_state,
+            '%%VERDICT_CLASS%%': verdict_class,
+            '%%VERDICT_TEXT%%': verdict_text,
         }
 
         html = HTML_DASHBOARD
