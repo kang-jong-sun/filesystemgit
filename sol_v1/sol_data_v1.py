@@ -486,6 +486,25 @@ class DataCollector:
     # ═══════════════════════════════════════════════════════════
     # Live candle update
     # ═══════════════════════════════════════════════════════════
+    async def _fetch_ohlcv_retry(self, symbol: str, since: int, limit: int = 20, max_retries: int = 3):
+        """네트워크 에러 시 재시도 (지수 백오프). 모두 실패 시 None 반환."""
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                return await self.exchange.fetch_ohlcv(symbol, TIMEFRAME_API, since=since, limit=limit)
+            except (ccxt.NetworkError, ccxt.RequestTimeout, ccxt.ExchangeNotAvailable) as e:
+                last_err = e
+                wait = 2 ** attempt  # 1, 2, 4초
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(wait)
+                    continue
+            except Exception as e:
+                last_err = e
+                break  # 다른 에러는 재시도 안 함
+        # 모두 실패
+        logger.warning(f"{symbol} fetch_ohlcv {max_retries}회 실패: {last_err}")
+        return None
+
     async def update_candles(self):
         """최신 SOL + BTC 캔들 가져와서 추가 + 주기적 CSV 저장"""
         now = time.time()
@@ -493,7 +512,7 @@ class DataCollector:
         # SOL
         try:
             since = self.last_candle_time + 1
-            candles = await self.exchange.fetch_ohlcv(SYMBOL, TIMEFRAME_API, since=since, limit=20)
+            candles = await self._fetch_ohlcv_retry(SYMBOL, since, 20)
             if candles:
                 df_new5 = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
                 df_new5['timestamp'] = pd.to_datetime(df_new5['timestamp'], unit='ms', utc=True)
@@ -525,12 +544,13 @@ class DataCollector:
                     self._save_csv_yearly('sol', self._raw_5m_sol)
                     self._last_csv_save_sol = now
         except Exception as e:
-            logger.error(f"SOL candle update 오류: {e}")
+            # 네트워크 에러는 이미 _fetch_ohlcv_retry 에서 처리. 여기까지 온 건 다른 에러.
+            logger.warning(f"SOL candle update 오류 (무시, 다음 tick에 재시도): {e}")
 
         # BTC 1h
         try:
             since = self.btc_last_time + 1
-            candles = await self.exchange.fetch_ohlcv(BTC_SYMBOL, TIMEFRAME_API, since=since, limit=20)
+            candles = await self._fetch_ohlcv_retry(BTC_SYMBOL, since, 20)
             if candles:
                 df_new5 = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
                 df_new5['timestamp'] = pd.to_datetime(df_new5['timestamp'], unit='ms', utc=True)
@@ -563,7 +583,7 @@ class DataCollector:
                     self._save_csv_yearly('btc', self._raw_5m_btc)
                     self._last_csv_save_btc = now
         except Exception as e:
-            logger.error(f"BTC candle update 오류: {e}")
+            logger.warning(f"BTC candle update 오류 (무시, 다음 tick에 재시도): {e}")
 
     # ═══════════════════════════════════════════════════════════
     # WebSocket (real-time price)

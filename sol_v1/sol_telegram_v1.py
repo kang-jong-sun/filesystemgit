@@ -41,18 +41,36 @@ class TelegramNotifier:
     def set_command_handler(self, handler):
         self._command_handler = handler
 
-    async def _send_raw(self, text: str, parse_mode: str = 'HTML'):
+    async def _send_raw(self, text: str, parse_mode: str = 'HTML', max_retries: int = 3):
+        """Telegram 전송 (재시도 포함). 네트워크 일시 끊김은 재시도로 복구."""
         if not self.enabled or not self.session: return
         url = f"https://api.telegram.org/bot{self.token}/sendMessage"
-        try:
-            async with self.session.post(url, json={
-                'chat_id': self.chat_id, 'text': text, 'parse_mode': parse_mode,
-                'disable_web_page_preview': True,
-            }, timeout=10) as r:
-                if r.status != 200:
-                    logger.warning(f"Telegram send failed: {r.status}")
-        except Exception as e:
-            logger.warning(f"Telegram 전송 오류: {e}")
+        last_err = None
+        for attempt in range(max_retries):
+            try:
+                async with self.session.post(url, json={
+                    'chat_id': self.chat_id, 'text': text, 'parse_mode': parse_mode,
+                    'disable_web_page_preview': True,
+                }, timeout=10) as r:
+                    if r.status == 200:
+                        return  # 성공
+                    # 400/401/403 등은 재시도해도 소용 없음
+                    if r.status in (400, 401, 403, 404):
+                        logger.warning(f"Telegram send failed (재시도 불가): HTTP {r.status}")
+                        return
+                    last_err = f"HTTP {r.status}"
+            except (aiohttp.ServerDisconnectedError, aiohttp.ClientConnectorError, asyncio.TimeoutError) as e:
+                last_err = e
+                # 네트워크 에러는 재시도
+            except Exception as e:
+                # 기타 에러는 즉시 중단
+                logger.warning(f"Telegram 전송 오류: {e}")
+                return
+            # 재시도 대기 (1초, 2초)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+        # 모두 실패
+        logger.warning(f"Telegram 전송 {max_retries}회 실패: {last_err}")
 
     def send(self, text: str):
         """동기 호출용 (asyncio.create_task로 비동기 실행)"""

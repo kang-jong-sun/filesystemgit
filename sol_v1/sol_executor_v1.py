@@ -68,7 +68,12 @@ class OrderExecutor:
             await self.exchange.set_margin_mode(MARGIN_MODE, SYMBOL)
             logger.info(f"마진모드: {MARGIN_MODE}")
         except Exception as e:
-            logger.warning(f"마진모드: {e}")
+            err_str = str(e)
+            # -4046: No need to change / -4067: Position side change blocked (이미 설정됨)
+            if '-4046' in err_str or '-4067' in err_str or 'No need to change' in err_str:
+                logger.info(f"마진모드: {MARGIN_MODE} (이미 설정됨, 변경 불필요)")
+            else:
+                logger.warning(f"마진모드: {e}")
 
         try:
             resp = await self.exchange.fapiPrivateGetPositionSideDual()
