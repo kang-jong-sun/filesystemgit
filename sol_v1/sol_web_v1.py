@@ -688,15 +688,17 @@ async function loadChart(limit) {
   }
 }
 
-// 초기 로드: 6개월 전체(17,280봉) 로드, 기본 120봉만 visible
-// 휠/드래그로 과거 6개월 스크롤 가능
+// 초기 로드: 6개월 전체(17,280봉) 1회만 로드
+// 이후 실시간 업데이트는 updateCurrentBar() 5초 폴링으로 처리
+// 15분 봉 경계 크로싱 시 자동으로 새 봉 생성
+// 전체 refresh는 15분마다 (1회 봉 마감 주기)
 initChart();
 loadChart(17280);
 
-// 30초마다 자동 갱신 (진행 중 봉 실시간 반영 위해 5분 → 30초 단축)
+// 15분마다 전체 refresh (과거 봉 보정, 갱신 빈도 최소화)
 setInterval(() => {
   loadChart(17280);
-}, 30000);
+}, 900000);  // 15분
 
 // ★ 진행 중 봉 실시간 업데이트 (ETH V8 방식): 5초마다 현재가 폴링
 async function updateCurrentBar() {
