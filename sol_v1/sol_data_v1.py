@@ -525,18 +525,23 @@ class DataCollector:
                     self._raw_5m_sol = self._raw_5m_sol[~self._raw_5m_sol.index.duplicated(keep='last')].sort_index()
                     self._raw_5m_sol = self._trim_raw_to_retention(self._raw_5m_sol)
 
-                df_new15 = self._resample_to(df_new5, TIMEFRAME_PRIMARY)
-                new_rows = df_new15[~df_new15.index.isin(self.df_sol.index)]
-                if len(new_rows) > 0:
-                    self.df_sol = pd.concat([self.df_sol, new_rows]).sort_index()
-                    self.df_sol = self.df_sol[~self.df_sol.index.duplicated(keep='last')]
-                    # ★ 6개월(180일) 기준으로 15m 봉 제한: 17,280봉 = 180*24*4
+                # ★ 리샘플링은 df_new5(새 fetch)가 아닌 _raw_5m_sol 최근 부분으로
+                # 이유: df_new5에 진행 중 15m 봉의 모든 5m 봉이 없을 수 있음 (since 필터로 일부 제외)
+                # 최근 30개 5m 봉(150분) = 최근 10개 15m 봉이 정확히 리샘플됨
+                recent_5m = self._raw_5m_sol.tail(30) if self._raw_5m_sol is not None and len(self._raw_5m_sol) >= 30 else df_new5
+                df_new15 = self._resample_to(recent_5m, TIMEFRAME_PRIMARY)
+                if len(df_new15) > 0:
+                    # ★ 기존 봉도 덮어쓰기: 진행 중 15m 봉의 OHLC 갱신 (좁은 봉 고정 버그 해결)
+                    # 5m 봉이 추가될 때마다 기존 15m 봉의 H/L/C가 확장되어야 함
+                    self.df_sol = pd.concat([self.df_sol, df_new15])
+                    self.df_sol = self.df_sol[~self.df_sol.index.duplicated(keep='last')].sort_index()
+                    # 6개월(180일) 기준으로 15m 봉 제한: 17,280봉 = 180*24*4
                     MAX_15M_BARS = CSV_FILTER_DAYS * 24 * 4  # 17,280
                     if len(self.df_sol) > MAX_15M_BARS:
                         self.df_sol = self.df_sol.iloc[-MAX_15M_BARS:]
                     self.last_candle_time = int(df_new15.index[-1].timestamp() * 1000)
                     self._calculate_indicators()
-                    logger.debug(f"SOL 15m {len(new_rows)}봉 추가, 총 {len(self.df_sol)}봉")
+                    logger.debug(f"SOL 15m 갱신, 총 {len(self.df_sol)}봉 (df_new15 {len(df_new15)}봉)")
 
             # 주기적 CSV 저장 (5분마다)
             if now - self._last_csv_save_sol >= CSV_SAVE_INTERVAL:
@@ -563,12 +568,14 @@ class DataCollector:
                     self._raw_5m_btc = self._raw_5m_btc[~self._raw_5m_btc.index.duplicated(keep='last')].sort_index()
                     self._raw_5m_btc = self._trim_raw_to_retention(self._raw_5m_btc)
 
-                df_new1h = self._resample_to(df_new5, TIMEFRAME_BTC)
-                new_rows = df_new1h[~df_new1h.index.isin(self.df_btc.index)]
-                if len(new_rows) > 0:
-                    self.df_btc = pd.concat([self.df_btc, new_rows]).sort_index()
-                    self.df_btc = self.df_btc[~self.df_btc.index.duplicated(keep='last')]
-                    # ★ 6개월(180일) 기준 1h 봉 제한: 4,320봉 = 180*24
+                # ★ BTC도 동일: 최근 24개 5m 봉 (=2시간) 사용해서 1h 봉 정확 리샘플
+                recent_btc_5m = self._raw_5m_btc.tail(30) if self._raw_5m_btc is not None and len(self._raw_5m_btc) >= 30 else df_new5
+                df_new1h = self._resample_to(recent_btc_5m, TIMEFRAME_BTC)
+                if len(df_new1h) > 0:
+                    # ★ 기존 봉 덮어쓰기 (진행 중 1h 봉 OHLC 갱신)
+                    self.df_btc = pd.concat([self.df_btc, df_new1h])
+                    self.df_btc = self.df_btc[~self.df_btc.index.duplicated(keep='last')].sort_index()
+                    # 6개월(180일) 기준 1h 봉 제한: 4,320봉 = 180*24
                     MAX_1H_BARS = CSV_FILTER_DAYS * 24  # 4,320
                     if len(self.df_btc) > MAX_1H_BARS:
                         self.df_btc = self.df_btc.iloc[-MAX_1H_BARS:]
