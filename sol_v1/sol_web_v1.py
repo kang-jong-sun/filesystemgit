@@ -710,10 +710,12 @@ async function updateCurrentBar() {
       document.getElementById('current-price').textContent = '$' + d.price.toFixed(3);
     }
 
-    // 서버의 실제 마지막 봉 데이터를 그대로 update
-    // (프론트가 봉 경계 계산/OHLC 추정 안 함 → 깨짐 원천 제거)
-    if (d.last_bar && candleSeries) {
-      candleSeries.update(d.last_bar);
+    // ★ 최근 5봉 모두 update (진행 중 봉 + 직전 4개 마감봉)
+    // 핵심: 직전 마감 봉의 최종 OHLC를 계속 갱신하여 "좁은 봉 동결" 방지
+    if (d.last_bars && Array.isArray(d.last_bars) && candleSeries) {
+      for (const bar of d.last_bars) {
+        candleSeries.update(bar);
+      }
     }
   } catch(e) {}
 }
@@ -1506,22 +1508,25 @@ class WebDashboard:
                 price = float(data.current_price)
             elif data and data.df_sol is not None and len(data.df_sol) > 0:
                 price = float(data.df_sol['close'].iloc[-1])
-            # ★ 서버 df_sol의 마지막 봉 OHLC (클라이언트 추정 제거)
+            # ★ 최근 5봉 OHLC (진행 중 봉 + 직전 4개 마감봉)
+            # 핵심: 직전 마감 봉이 좁은 OHLC로 동결되는 문제 해결
             KST_OFFSET = 9 * 3600
-            last_bar_info = None
+            last_bars = []
             if data and data.df_sol is not None and len(data.df_sol) > 0:
-                last = data.df_sol.iloc[-1]
-                ts = data.df_sol.index[-1]
-                last_bar_info = {
-                    'time': int(ts.timestamp()) + KST_OFFSET,
-                    'open': round(float(last['open']), 3),
-                    'high': round(float(last['high']), 3),
-                    'low': round(float(last['low']), 3),
-                    'close': round(float(last['close']), 3),
-                }
+                n_recent = min(5, len(data.df_sol))
+                for i in range(-n_recent, 0):
+                    bar = data.df_sol.iloc[i]
+                    ts = data.df_sol.index[i]
+                    last_bars.append({
+                        'time': int(ts.timestamp()) + KST_OFFSET,
+                        'open': round(float(bar['open']), 3),
+                        'high': round(float(bar['high']), 3),
+                        'low': round(float(bar['low']), 3),
+                        'close': round(float(bar['close']), 3),
+                    })
             return JSONResponse({
                 'price': price,
-                'last_bar': last_bar_info,
+                'last_bars': last_bars,
                 'balance': ex.balance, 'available': ex.available_balance,
                 'peak': core.peak_capital, 'mdd': core.max_drawdown,
                 'total_trades': core.total_trades, 'win_rate': core.win_rate,
