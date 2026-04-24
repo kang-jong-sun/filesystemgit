@@ -1040,6 +1040,82 @@ sudo systemctl status sol-bot.service
 | 차트 17,280봉 렌더링 깨짐 | ✅ 해결 | setVisibleRange 7일 기본 (565d401) |
 | Entry Delay 중 "READY" 표시 | ✅ 해결 | 4단계 배너 (033588a) |
 | AWS Port 8081 접근 불가 | ✅ 해결 | Chrome 자동화로 SG 수정 |
+| 봇 재시작 시 Watch 상태 손실 | ✅ 해결 (2026-04-23) | save_state 즉시 호출 + TIME 기반 체크 (3567eab) |
+| Binance API 순간 끊김 ERROR | ✅ 해결 | _fetch_ohlcv_retry 3회 재시도 (6f34f31) |
+| Telegram Server disconnected | ✅ 해결 | 재시도 로직 (6f34f31) |
+| 마진모드 -4067 WARNING 반복 | ✅ 해결 | INFO 로 강등 (6f34f31) |
+| **차트 최근 봉 얇은 "-" 고정 현상** | ✅ **해결 (2026-04-24)** | **df_sol 진행 중 봉 덮어쓰기 (a6dc5ca)** |
+
+### 19.3.1 차트 깨짐 해결 상세 (2026-04-24, 7차 수정 여정)
+
+**문제 증상**: SOL V1 차트에서 최근 3~4개 15m 봉이 얇은 수평선 "-" 모양으로 고정 표시. ETH V8은 정상.
+
+**7번 수정 여정**:
+
+| 차수 | 접근 | 수정 위치 | 결과 |
+|---|---|---|---|
+| 1차 | setVisibleRange + 복잡한 타이밍 | 프론트 | ❌ |
+| 2차 | barSpacing + 3단계 RAF/setTimeout | 프론트 | ❌ |
+| 3차 | ETH V8 방식 단순화 (500봉) | 프론트 | ❌ |
+| 4차 | 6개월 전체 + 단순 로직 복구 | 프론트 | ❌ |
+| 5차 | 서버 last_bar 직접 반환 | 프론트 + API | ❌ |
+| 6차 | 최근 5봉 전체 update | 프론트 + API | ❌ |
+| **7차** | **서버 df_sol 덮어쓰기 + _raw_5m 리샘플** | **서버 데이터 파이프라인** | ✅ **해결** |
+
+**진짜 근본 원인** (서버 측 2가지 버그):
+
+1. **버그 A**: 기존 15m 봉 업데이트 누락
+   ```python
+   # sol_data_v1.py 기존 코드
+   new_rows = df_new15[~df_new15.index.isin(self.df_sol.index)]  # 기존 index 제외!
+   if len(new_rows) > 0:
+       self.df_sol = pd.concat([self.df_sol, new_rows])
+   ```
+   - 15:00 봉이 처음 좁은 OHLC로 저장 → 이후 5m 봉 추가되어도 업데이트 안 됨
+   - 진행 중 15m 봉이 영구히 좁은 OHLC로 고정
+
+2. **버그 B**: `since` 필터로 5m 봉 누락
+   ```python
+   since = self.last_candle_time + 1  # 15:00:00.001
+   # → 15:00:00 5m 봉 제외됨
+   # → df_new5에 해당 봉 빠짐
+   # → resample 결과 15m 봉 OHLC 부정확
+   ```
+
+**7차 수정** (서버 측):
+
+```python
+# A. _raw_5m_sol로 완전한 리샘플 (최근 30개 5m 봉 = 150분)
+recent_5m = self._raw_5m_sol.tail(30)
+df_new15 = self._resample_to(recent_5m, TIMEFRAME_PRIMARY)
+
+# B. 기존 봉도 덮어쓰기
+self.df_sol = pd.concat([self.df_sol, df_new15])
+self.df_sol = self.df_sol[~self.df_sol.index.duplicated(keep='last')].sort_index()
+```
+
+**왜 1~6차가 모두 실패했나**:
+- 1~6차 모두 **프론트엔드 렌더링만** 수정
+- 서버 `df_sol`에 이미 틀린 OHLC 데이터가 들어 있었음
+- 프론트가 서버 데이터 그대로 표시하니 정확히 그리려 할수록 "얇은 봉" 그대로 재현
+- 7차에서 서버 데이터 파이프라인을 수정하자 즉시 해결
+
+**프론트엔드 최종 구조** (6차 수정 유지):
+```javascript
+// 5초마다 /api/status → 최근 5봉 OHLC 받음
+// 마감된 봉도 서버 df_sol의 최종 OHLC로 갱신
+for (const bar of d.last_bars) {
+    candleSeries.update(bar);
+}
+```
+이제 서버 데이터가 정확하므로 프론트 5봉 갱신이 제대로 작동.
+
+**BTC 1h 봉도 동일 수정** (`_raw_5m_btc.tail(30)` + concat + duplicated).
+
+**교훈**:
+- 증상이 프론트에서 보여도 원인은 서버에 있을 수 있음
+- pandas resample + 중복 처리는 정교한 로직 필요 (`~isin()` 대신 `duplicated(keep='last')` 선호)
+- `since` 파라미터는 봉 경계에서 **관대한 범위** 설정 필요
 
 ### 19.4 모니터링 권장 지표
 
@@ -1170,6 +1246,14 @@ LOG_LEVEL=INFO
 ## 부록 D: Git 이력 (최신순)
 
 ```
+a6dc5ca  차트 깨짐 진짜 근본 해결 (7차): 서버 df_sol 진행 중 봉 갱신 버그 수정
+78c9541  차트 깨짐 근본 해결 (6차): 최근 5봉 전체 갱신
+1693ccc  차트 깨짐 근본 해결 (5차): 클라이언트 OHLC 추정 완전 제거
+b351e70  차트 깨짐 근본 해결 (4차): loadChart 주기 제거 + 봉 연속성
+8110b52  차트 깨짐 수정 (3차): loadChart 30초 → 15분
+f7ea8a4  차트 실시간 업데이트: TV와 동기화
+3567eab  Watch 상태 영속화: Cross 즉시 save + TIME 기반 delay/만료 체크
+6f34f31  에러 로그 정리: 마진모드 -4067 필터 + 네트워크 에러 재시도
 d12889d  SOL V1: RSI/ADX Wilder smoothing 교체 (TV + V12.1 백테스트 완전 일치)
 033588a  SOL V1 판정 배너: Entry Delay 차단 구분 (4단계)
 27fc7ad  Hotfix: daily_pct UnboundLocalError
@@ -1197,5 +1281,14 @@ bedcfee  SOL V1 실전 봇 최초 커밋 (4731줄)
 ---
 
 **문서 작성**: Claude Code
-**최종 수정**: 2026-04-23 15:30 KST
-**상태**: 운영 중 (sol-bot.service active, PID 184010, Wilder 적용)
+**최종 수정**: 2026-04-24 17:00 KST (차트 깨짐 근본 해결 반영)
+**상태**: 운영 중 (sol-bot.service active, Wilder + 서버 df_sol 버그 수정 적용)
+
+## 📝 문서 개정 이력
+
+| 버전 | 날짜 | 주요 변경 |
+|---|---|---|
+| v1.0 | 2026-04-23 | 초기 기획안 작성 (20 섹션) |
+| v1.1 | 2026-04-23 | Wilder 일치 수정 반영 |
+| **v1.2** | **2026-04-24** | **차트 깨짐 7차 수정 이력 추가 (19.3.1 신설)** |
+| v1.2 | 2026-04-24 | Watch 상태 영속화, 에러 로그 정리, 재시도 로직 추가 |
