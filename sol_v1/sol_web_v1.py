@@ -696,40 +696,24 @@ async function loadChart(limit) {
 initChart();
 loadChart(17280);
 
-// ★ 진행 중 봉 실시간 업데이트 (ETH V8 방식): 5초마다 현재가 폴링
+// ★ 서버 데이터 그대로 반영 (추정 로직 완전 제거)
+// 서버의 df_sol 마지막 봉 OHLC를 5초마다 가져와서 차트에 직접 적용
+// → 봉 경계 계산/OHLC 추정 등 모든 프론트 추정 로직 제거
 async function updateCurrentBar() {
   try {
     const resp = await fetch('/api/status');
     if (!resp.ok) return;
     const d = await resp.json();
-    if (!d.price || !candleSeries) return;
 
     // 현재가 표시 갱신
-    document.getElementById('current-price').textContent = '$' + d.price.toFixed(3);
+    if (d.price) {
+      document.getElementById('current-price').textContent = '$' + d.price.toFixed(3);
+    }
 
-    // 진행 중인 15m 봉에 현재가 반영
-    if (currentBar) {
-      const nowKstSec = Math.floor(Date.now() / 1000) + (9 * 3600);
-      // 15분 봉 시작 시각 (KST 기준)
-      const barStart = nowKstSec - (nowKstSec % 900);
-      if (barStart === currentBar.time) {
-        // 같은 봉: high/low/close 업데이트
-        currentBar.high = Math.max(currentBar.high, d.price);
-        currentBar.low = Math.min(currentBar.low, d.price);
-        currentBar.close = d.price;
-        candleSeries.update(currentBar);
-      } else if (barStart > currentBar.time) {
-        // ★ 새 봉 시작: 이전 봉 close를 open으로 연결 (TV 방식, 연속성)
-        const prevClose = currentBar.close;
-        currentBar = {
-          time: barStart,
-          open: prevClose,
-          high: Math.max(prevClose, d.price),
-          low: Math.min(prevClose, d.price),
-          close: d.price
-        };
-        candleSeries.update(currentBar);
-      }
+    // 서버의 실제 마지막 봉 데이터를 그대로 update
+    // (프론트가 봉 경계 계산/OHLC 추정 안 함 → 깨짐 원천 제거)
+    if (d.last_bar && candleSeries) {
+      candleSeries.update(d.last_bar);
     }
   } catch(e) {}
 }
@@ -1516,14 +1500,28 @@ class WebDashboard:
             core = self.bot.core
             ex = self.bot.executor
             data = self.bot.data
-            # WebSocket 실시간 가격 (없으면 마지막 봉 close fallback)
+            # WebSocket 실시간 가격
             price = 0.0
             if data and data.current_price > 0:
                 price = float(data.current_price)
             elif data and data.df_sol is not None and len(data.df_sol) > 0:
                 price = float(data.df_sol['close'].iloc[-1])
+            # ★ 서버 df_sol의 마지막 봉 OHLC (클라이언트 추정 제거)
+            KST_OFFSET = 9 * 3600
+            last_bar_info = None
+            if data and data.df_sol is not None and len(data.df_sol) > 0:
+                last = data.df_sol.iloc[-1]
+                ts = data.df_sol.index[-1]
+                last_bar_info = {
+                    'time': int(ts.timestamp()) + KST_OFFSET,
+                    'open': round(float(last['open']), 3),
+                    'high': round(float(last['high']), 3),
+                    'low': round(float(last['low']), 3),
+                    'close': round(float(last['close']), 3),
+                }
             return JSONResponse({
                 'price': price,
+                'last_bar': last_bar_info,
                 'balance': ex.balance, 'available': ex.available_balance,
                 'peak': core.peak_capital, 'mdd': core.max_drawdown,
                 'total_trades': core.total_trades, 'win_rate': core.win_rate,
