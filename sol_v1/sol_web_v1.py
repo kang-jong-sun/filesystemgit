@@ -591,7 +591,7 @@ function initChart() {
       borderColor: '#2d3748',
       timeVisible: true,
       secondsVisible: false,
-      barSpacing: 6,         // ETH V8과 동일 (데스크탑 기준)
+      barSpacing: 8,         // 저변동성 봉 가독성 개선 (6 → 8)
       rightOffset: 5,
     },
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
@@ -688,17 +688,13 @@ async function loadChart(limit) {
   }
 }
 
-// 초기 로드: 6개월 전체(17,280봉) 1회만 로드
+// 초기 로드: 6개월 전체(17,280봉) 단 1회만 로드
 // 이후 실시간 업데이트는 updateCurrentBar() 5초 폴링으로 처리
 // 15분 봉 경계 크로싱 시 자동으로 새 봉 생성
-// 전체 refresh는 15분마다 (1회 봉 마감 주기)
+// ★ loadChart setInterval 제거: setData/update 충돌 제거
+// (페이지 새로고침 시에만 전체 재로드)
 initChart();
 loadChart(17280);
-
-// 15분마다 전체 refresh (과거 봉 보정, 갱신 빈도 최소화)
-setInterval(() => {
-  loadChart(17280);
-}, 900000);  // 15분
 
 // ★ 진행 중 봉 실시간 업데이트 (ETH V8 방식): 5초마다 현재가 폴링
 async function updateCurrentBar() {
@@ -723,8 +719,15 @@ async function updateCurrentBar() {
         currentBar.close = d.price;
         candleSeries.update(currentBar);
       } else if (barStart > currentBar.time) {
-        // 새 봉 시작
-        currentBar = { time: barStart, open: d.price, high: d.price, low: d.price, close: d.price };
+        // ★ 새 봉 시작: 이전 봉 close를 open으로 연결 (TV 방식, 연속성)
+        const prevClose = currentBar.close;
+        currentBar = {
+          time: barStart,
+          open: prevClose,
+          high: Math.max(prevClose, d.price),
+          low: Math.min(prevClose, d.price),
+          close: d.price
+        };
         candleSeries.update(currentBar);
       }
     }
