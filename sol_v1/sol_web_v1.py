@@ -108,7 +108,7 @@ tr:hover{background:rgba(255,255,255,0.02)}
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1</div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
   <div class="nav">
     <a href="/" class="active-tab">Dashboard</a>
     <a href="/chart">Chart</a>
@@ -300,7 +300,7 @@ tr:hover{background:rgba(255,255,255,0.02)}
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1</div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
   <div class="nav">
     <a href="/">Dashboard</a>
     <a href="/chart">Chart</a>
@@ -364,7 +364,7 @@ tr:hover{background:rgba(255,255,255,0.02)}
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1</div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
   <div class="nav">
     <a href="/">Dashboard</a>
     <a href="/chart">Chart</a>
@@ -447,7 +447,7 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1</div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
   <div class="nav">
     <a href="/">Dashboard</a>
     <a href="/chart">Chart</a>
@@ -525,7 +525,7 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1</div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
   <div class="nav">
     <a href="/">Dashboard</a>
     <a href="/chart" class="active-tab">Chart</a>
@@ -1087,10 +1087,12 @@ class WebDashboard:
             return f"{v:.{d}f}"
 
         # %%TOKEN%% 기반 replace 매핑
+        _now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         repl = {
+            '%%CURRENT_TIME%%': _now_str,
             '%%DOT_CLASS%%': dot_class,
             '%%STATUS_TEXT%%': status_text,
-            '%%LAST_UPDATE%%': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            '%%LAST_UPDATE%%': _now_str,
             '%%BALANCE%%': fmt(ex.balance),
             '%%AVAILABLE%%': fmt(ex.available_balance),
             '%%PEAK%%': fmt(core.peak_capital),
@@ -1255,6 +1257,7 @@ class WebDashboard:
             pagination = f'<span>전체 {total_trades_db}건</span>'
 
         repl = {
+            '%%CURRENT_TIME%%': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             '%%TOTAL%%': str(core.total_trades),
             '%%WINS%%': str(core.win_count),
             '%%LOSSES%%': str(core.loss_count),
@@ -1367,6 +1370,7 @@ class WebDashboard:
             daily_rows = "<tr><td colspan='8' style='text-align:center;color:#64748b;padding:40px'>아직 일일 요약 데이터 없음 (UTC 자정 이후 첫 기록 생성)</td></tr>"
 
         repl = {
+            '%%CURRENT_TIME%%': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             '%%BALANCE%%': f"{ex.balance:,.2f}",
             '%%AVAILABLE%%': f"{ex.available_balance:,.2f}",
             '%%PEAK%%': f"{core.peak_capital:,.2f}",
@@ -1434,6 +1438,7 @@ class WebDashboard:
                 )
 
         repl = {
+            '%%CURRENT_TIME%%': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             '%%TOTAL%%': str(total),
             '%%ERRORS%%': str(err_count),
             '%%WARNINGS%%': str(warn_count),
@@ -1493,7 +1498,8 @@ class WebDashboard:
         async def chart_page(request: Request):
             if not self._is_auth(request):
                 return RedirectResponse('/login', status_code=303)
-            return HTMLResponse(HTML_CHART)
+            html = HTML_CHART.replace('%%CURRENT_TIME%%', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            return HTMLResponse(html)
 
         @self.app.get('/api/status')
         async def api_status(request: Request):
