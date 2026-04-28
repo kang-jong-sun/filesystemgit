@@ -546,19 +546,41 @@ class TradingCore:
                                   exit_price=pos.sl_price,
                                   reason=f"TSL hit ${h_:.3f} >= ${pos.sl_price:.3f}")
 
-        # REV (V12만, 봉마감 기준)
+        # REV (V12만, 봉마감 기준) — 진단 로그 강화 (2026-04-28)
         if USE_REV and pos.entry_mode == EntryMode.V12 and not pos.tsl_active:
             fm = indicators.get('fast_ma')
             sm = indicators.get('slow_ma')
             pfm = indicators.get('prev_fast_ma')
             psm = indicators.get('prev_slow_ma')
-            if fm is not None and sm is not None and pfm is not None and psm is not None:
-                if not (math.isnan(fm) or math.isnan(sm) or math.isnan(pfm) or math.isnan(psm)):
-                    up = fm > sm and pfm <= psm
-                    dn = fm < sm and pfm >= psm
-                    if (pos.direction == 1 and dn) or (pos.direction == -1 and up):
-                        return Signal(action='EXIT', direction=pos.direction, exit_type='REV',
-                                      exit_price=px, reason=f"REV (EMA9 cross)")
+            pos_dir = 'LONG' if pos.direction == 1 else 'SHORT'
+
+            # 데이터 누락 진단
+            if fm is None or sm is None or pfm is None or psm is None:
+                signal_log.info(f"V12 REV-SKIP @ bar#{bar_idx} | indicators 누락 "
+                                f"(fm={fm} sm={sm} pfm={pfm} psm={psm})")
+            elif math.isnan(fm) or math.isnan(sm) or math.isnan(pfm) or math.isnan(psm):
+                signal_log.info(f"V12 REV-SKIP @ bar#{bar_idx} | indicators NaN "
+                                f"(fm={fm} sm={sm} pfm={pfm} psm={psm})")
+            else:
+                up = fm > sm and pfm <= psm
+                dn = fm < sm and pfm >= psm
+                # ★ Cross 감지 시 진단 로그 (REV 발동 여부와 무관하게 항상 기록)
+                if up or dn:
+                    cross_str = 'CROSS_UP' if up else 'CROSS_DN'
+                    signal_log.info(f"V12 REV-CHECK {cross_str} @ bar#{bar_idx} | "
+                                    f"EMA9 ${fm:.3f} vs SMA400 ${sm:.3f} | "
+                                    f"prev EMA9 ${pfm:.3f} vs SMA400 ${psm:.3f} | "
+                                    f"position={pos_dir} tsl_active={pos.tsl_active}")
+                # REV 발동
+                if (pos.direction == 1 and dn) or (pos.direction == -1 and up):
+                    signal_log.info(f"V12 REV TRIGGERED @ bar#{bar_idx} price ${px:.3f} | "
+                                    f"position={pos_dir} → EXIT "
+                                    f"(EMA9 ${fm:.3f} {'<' if dn else '>'} SMA400 ${sm:.3f}, 반대 방향)")
+                    return Signal(action='EXIT', direction=pos.direction, exit_type='REV',
+                                  exit_price=px, reason=f"REV (EMA9 cross {pos_dir} → {'SHORT' if dn else 'LONG'})")
+        elif USE_REV and pos.entry_mode == EntryMode.V12 and pos.tsl_active:
+            # TSL 활성 시 REV 비활성 — 1회만 로깅 (peak_roi 도달 시점 직후)
+            pass  # TSL 우선이라 정상
 
         return Signal(action='NONE')
 
