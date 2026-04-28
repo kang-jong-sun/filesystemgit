@@ -709,6 +709,16 @@ class SOLTradingBot:
             self.logger.warning(f"Heartbeat error: {e}")
 
     def _send_status_report(self):
+        from sol_core_v1 import LEVERAGE
+        # 가격 폴백
+        price = 0.0
+        if self.data:
+            if self.data.current_price > 0:
+                price = float(self.data.current_price)
+            elif self.data.df_sol is not None and len(self.data.df_sol) > 0:
+                price = float(self.data.df_sol['close'].iloc[-1])
+        eff_lev = self.executor.leverage if hasattr(self.executor, 'leverage') and self.executor.leverage else LEVERAGE
+
         stats = {
             'balance': self.executor.balance,
             'peak': self.core.peak_capital,
@@ -720,7 +730,36 @@ class SOLTradingBot:
             'rev': self.core.rev_count,
             'consec': self.core.consec_losses,
             'skip': self.core.skip_remaining,
+            'price': price,
+            'leverage': eff_lev,
+            'leverage_default': LEVERAGE,
+            'position': None,
         }
+        if self.core.has_position:
+            p = self.core.position
+            if price > 0 and p.entry_price > 0:
+                roi = (price - p.entry_price) / p.entry_price * p.direction * 100
+                pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction
+            else:
+                roi = 0; pnl = 0
+            from datetime import datetime as _dt
+            entry_dt_str = _dt.fromtimestamp(p.entry_time).strftime('%Y-%m-%d %H:%M:%S') if p.entry_time else '-'
+            hold = max(int(time.time() - p.entry_time), 0) if p.entry_time else 0
+            d_, rem = divmod(hold, 86400)
+            hh, rem = divmod(rem, 3600)
+            mm, _ss = divmod(rem, 60)
+            hold_str = (f"{d_}d {hh}h {mm}m" if d_ > 0 else (f"{hh}h {mm}m" if hh > 0 else f"{mm}m"))
+            stats['position'] = {
+                'direction_str': 'LONG' if p.direction == 1 else 'SHORT',
+                'entry_mode_str': 'V12' if p.entry_mode == 1 else 'MASS',
+                'entry_price': p.entry_price,
+                'sl_price': p.sl_price,
+                'tsl_active': p.tsl_active,
+                'roi': roi, 'pnl': pnl, 'peak_roi': p.peak_roi,
+                'entry_time_str': entry_dt_str,
+                'hold_str': hold_str,
+                'has_price': price > 0,
+            }
         self.telegram.notify_status(stats)
 
     async def _handle_command(self, cmd: str):
@@ -763,7 +802,15 @@ class SOLTradingBot:
             sub = (remainder + extras).strip()
 
             from sol_core_v1 import LEVERAGE
-            price = self.data.current_price if self.data and self.data.current_price > 0 else 0.0
+            # ★ price 폴백: WebSocket 가격이 0이면 df_sol 마지막 close 사용
+            price = 0.0
+            if self.data:
+                if self.data.current_price > 0:
+                    price = float(self.data.current_price)
+                elif self.data.df_sol is not None and len(self.data.df_sol) > 0:
+                    price = float(self.data.df_sol['close'].iloc[-1])
+            # 거래소 동적 레버리지 (사용자 설정 추적)
+            eff_lev = self.executor.leverage if hasattr(self.executor, 'leverage') and self.executor.leverage else LEVERAGE
             uptime = time.time() - self._start_time
             h, rem = divmod(int(max(uptime, 0)), 3600)
             m, _s = divmod(rem, 60)
@@ -773,18 +820,25 @@ class SOLTradingBot:
                 pos_str = "NO POSITION"
                 if self.core.has_position:
                     p = self.core.position
-                    roi = (price - p.entry_price) / p.entry_price * p.direction * 100 if p.entry_price > 0 else 0
-                    pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction if p.entry_price > 0 else 0
+                    # 가격이 유효할 때만 ROI/PnL 계산 (0이면 N/A)
+                    if price > 0 and p.entry_price > 0:
+                        roi = (price - p.entry_price) / p.entry_price * p.direction * 100
+                        pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction
+                        roi_str = f"{roi:+.2f}%"
+                        pnl_str = f"${pnl:+,.2f}"
+                    else:
+                        roi_str = "N/A (가격 대기)"
+                        pnl_str = "N/A"
                     d = "LONG" if p.direction == 1 else "SHORT"
                     mode = 'V12' if p.entry_mode == 1 else 'MASS'
                     pos_str = (f"{d} [{mode}] @${p.entry_price:.3f}\n"
-                               f"  ROI: {roi:+.2f}% | PnL: ${pnl:+,.2f}\n"
+                               f"  ROI: {roi_str} | PnL: {pnl_str}\n"
                                f"  SL: ${p.sl_price:.3f} | TSL: {'ON' if p.tsl_active else 'OFF'}")
                 self.telegram.send(
                     f"<b>[SOL V1] 상태</b>\n"
                     f"Uptime: {h}h {m}m\n"
                     f"Price: ${price:.3f}\n"
-                    f"Leverage: {LEVERAGE}x\n\n"
+                    f"Leverage: {eff_lev}x{' (사용자 설정)' if eff_lev != LEVERAGE else ''}\n\n"
                     f"<b>Position:</b> {pos_str}\n\n"
                     f"<b>Balance:</b> ${self.executor.balance:,.2f}\n"
                     f"Trades: {self.core.total_trades} | WR: {self.core.win_rate:.0f}%\n"
@@ -798,25 +852,45 @@ class SOLTradingBot:
                     self.telegram.send("<b>[SOL V1]</b> 보유 포지션 없음")
                     return
                 p = self.core.position
-                roi = (price - p.entry_price) / p.entry_price * p.direction * 100 if p.entry_price > 0 else 0
-                pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction if p.entry_price > 0 else 0
+                if price > 0 and p.entry_price > 0:
+                    roi = (price - p.entry_price) / p.entry_price * p.direction * 100
+                    pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction
+                    roi_str = f"{roi:+.2f}%"
+                    pnl_str = f"${pnl:+,.2f}"
+                else:
+                    roi_str = "N/A (가격 대기)"
+                    pnl_str = "N/A"
                 d = "LONG" if p.direction == 1 else "SHORT"
                 mode = 'V12' if p.entry_mode == 1 else 'MASS'
-                hold = time.time() - p.entry_time
-                hh, rm = divmod(int(hold), 3600)
-                mm, _ = divmod(rm, 60)
+                # 진입 시각
+                from datetime import datetime as _dt
+                entry_dt_str = _dt.fromtimestamp(p.entry_time).strftime('%Y-%m-%d %H:%M:%S') if p.entry_time else '-'
+                # 보유 시간
+                hold = max(int(time.time() - p.entry_time), 0) if p.entry_time else 0
+                d_, rem = divmod(hold, 86400)
+                hh, rem = divmod(rem, 3600)
+                mm, ss = divmod(rem, 60)
+                if d_ > 0:
+                    hold_str = f"{d_}d {hh}h {mm}m"
+                elif hh > 0:
+                    hold_str = f"{hh}h {mm}m"
+                else:
+                    hold_str = f"{mm}m {ss}s"
                 self.telegram.send(
                     f"<b>[SOL V1] 포지션</b>\n"
                     f"Direction: {d} [{mode}]\n"
                     f"Entry: ${p.entry_price:.3f}\n"
                     f"Current: ${price:.3f}\n"
+                    f"Leverage: {eff_lev}x{' (사용자)' if eff_lev != LEVERAGE else ''}\n"
                     f"Size: ${p.position_size:,.0f}\n"
                     f"Margin: ${p.margin_used:,.0f}\n"
-                    f"ROI: {roi:+.2f}% | PnL: ${pnl:+,.2f}\n"
+                    f"ROI: {roi_str} | PnL: {pnl_str}\n"
                     f"SL: ${p.sl_price:.3f}\n"
                     f"TSL: {'ON' if p.tsl_active else 'OFF'}\n"
                     f"Peak ROI: {p.peak_roi:+.2f}%\n"
-                    f"Hold: {hh}h {mm}m"
+                    f"Leg: {p.leg_count}/3\n\n"
+                    f"📅 진입 시각: {entry_dt_str}\n"
+                    f"⏱ 보유 시간: {hold_str}"
                 )
 
             # === /sol 잔액 ===
@@ -841,8 +915,34 @@ class SOLTradingBot:
                         "pnl, roi_pct, exit_type, hold_time FROM trades ORDER BY id DESC LIMIT 5"
                     ).fetchall()
                     if not rows:
+                        # 청산 거래 없으면 진입 기록(entries)이라도 표시
+                        ent_rows = conn.execute(
+                            "SELECT timestamp, source, direction, entry_mode, entry_price, "
+                            "position_size, margin, leverage, sl_price FROM entries "
+                            "ORDER BY id DESC LIMIT 5"
+                        ).fetchall()
                         conn.close()
-                        self.telegram.send("<b>[SOL V1]</b> 거래 내역 없음")
+                        if not ent_rows:
+                            self.telegram.send("<b>[SOL V1]</b> 거래/진입 내역 없음")
+                            return
+                        lines = ["<b>[SOL V1] 📥 최근 진입 (청산 전)</b>",
+                                 "(아직 청산 거래 없음 — 진입 기록만 표시)"]
+                        for ts, src, d_str, mode, ep, sz, mg, lev, sl in reversed(ent_rows):
+                            try:
+                                entry_dt = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')
+                                entry_str = entry_dt.strftime('%m-%d %H:%M')
+                            except Exception:
+                                entry_str = ts[5:16] if len(ts) >= 16 else ts
+                            dir_emoji = '🟢' if d_str == 'LONG' else '🔴'
+                            src_str = (src or 'BOT').upper()
+                            if 'TG' in src_str: src_tag = 'TG'
+                            elif 'USER' in src_str: src_tag = 'USER'
+                            else: src_tag = 'BOT'
+                            lines.append("")
+                            lines.append(f"{dir_emoji} <b>{d_str}</b> [{mode}/{src_tag}] | {entry_str}")
+                            lines.append(f"  Entry ${ep:.3f} | Size ${sz:,.0f} | "
+                                         f"Margin ${mg:,.0f} | Lev {lev}x | SL ${sl:.3f}")
+                        self.telegram.send("\n".join(lines))
                         return
 
                     def src_tag(s):

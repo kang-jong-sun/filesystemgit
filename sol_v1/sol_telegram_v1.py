@@ -219,8 +219,31 @@ class TelegramNotifier:
         self.send(text)
 
     def notify_status(self, stats: dict):
+        # 포지션 섹션
+        pos = stats.get('position')
+        price = stats.get('price', 0)
+        lev = stats.get('leverage', 0)
+        lev_default = stats.get('leverage_default', lev)
+        lev_str = f"{lev}x{' (사용자)' if lev != lev_default else ''}" if lev else ""
+        if pos:
+            roi_str = f"{pos['roi']:+.2f}%" if pos.get('has_price') else "N/A"
+            pnl_str = f"${pos['pnl']:+,.2f}" if pos.get('has_price') else "N/A"
+            pos_block = (
+                f"📍 <b>Position:</b> {pos['direction_str']} [{pos['entry_mode_str']}]\n"
+                f"  Entry ${pos['entry_price']:.3f} → Current ${price:.3f}\n"
+                f"  ROI: {roi_str} | PnL: {pnl_str}\n"
+                f"  Peak ROI: {pos['peak_roi']:+.2f}%\n"
+                f"  SL ${pos['sl_price']:.3f} | TSL: {'ON' if pos['tsl_active'] else 'OFF'}\n"
+                f"  📅 진입: {pos['entry_time_str']}\n"
+                f"  ⏱ 보유: {pos['hold_str']}\n\n"
+            )
+        else:
+            pos_block = "📭 <b>Position:</b> 없음 (신호 대기)\n\n"
+
         text = (
-            f"📊 <b>SOL Bot 상태</b>\n\n"
+            f"📊 <b>SOL Bot 상태</b>\n"
+            f"🎯 Price: ${price:.3f} | Lev {lev_str}\n\n"
+            f"{pos_block}"
             f"💰 Balance: ${stats['balance']:,.2f}\n"
             f"📈 Peak: ${stats['peak']:,.2f}\n"
             f"📉 MDD: {stats['mdd']*100:.1f}%\n\n"
