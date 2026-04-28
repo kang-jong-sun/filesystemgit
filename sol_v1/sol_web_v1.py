@@ -1524,6 +1524,32 @@ class WebDashboard:
                         'low': round(float(bar['low']), 3),
                         'close': round(float(bar['close']), 3),
                     })
+
+            # ★ 진행 중 15m 봉에 WebSocket 실시간 가격 합성 (8차 수정)
+            # 문제: fetch_ohlcv는 마감된 5m 봉만 반환 → 진행 중 5m 봉 데이터 누락
+            #       → 진행 중 15m 봉의 OHLC가 마지막 마감 5m 봉까지로 제한됨
+            # 해결: WebSocket current_price로 진행 중 봉의 close/high/low 실시간 보강
+            if data and data.current_price > 0:
+                cp = float(data.current_price)
+                import time as _t
+                now_kst_sec = int(_t.time()) + KST_OFFSET
+                expected_bar_start = now_kst_sec - (now_kst_sec % 900)  # 15분 봉 시작
+
+                if last_bars and last_bars[-1]['time'] == expected_bar_start:
+                    # 진행 중 봉이 이미 last_bars에 있음 → close/high/low 보강
+                    last_bars[-1]['close'] = round(cp, 3)
+                    last_bars[-1]['high'] = round(max(last_bars[-1]['high'], cp), 3)
+                    last_bars[-1]['low'] = round(min(last_bars[-1]['low'], cp), 3)
+                elif last_bars and last_bars[-1]['time'] < expected_bar_start:
+                    # 진행 중 봉이 아직 df_sol에 없음 → 새 봉 생성 (이전 close → open)
+                    prev_close = last_bars[-1]['close']
+                    last_bars.append({
+                        'time': expected_bar_start,
+                        'open': round(prev_close, 3),
+                        'high': round(max(prev_close, cp), 3),
+                        'low': round(min(prev_close, cp), 3),
+                        'close': round(cp, 3),
+                    })
             return JSONResponse({
                 'price': price,
                 'last_bars': last_bars,
