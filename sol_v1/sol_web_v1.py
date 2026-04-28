@@ -50,7 +50,7 @@ button:hover{background:#16a34a}
 
 HTML_DASHBOARD = """<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"><title>SOL V1 Dashboard</title>
-<meta http-equiv="refresh" content="5">
+<meta http-equiv="refresh" content="60">
 <style>
 *{box-sizing:border-box}
 body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e0e0;margin:0;padding:20px}
@@ -108,7 +108,7 @@ tr:hover{background:rgba(255,255,255,0.02)}
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 <span id="live-hdr-time">%%CURRENT_TIME%%</span></span></div>
   <div class="nav">
     <a href="/" class="active-tab">Dashboard</a>
     <a href="/chart">Chart</a>
@@ -134,7 +134,7 @@ tr:hover{background:rgba(255,255,255,0.02)}
     <div class="bar"><div class="bar-fill bar-red" style="width:%%MDD_PCT_WIDTH%%%"></div></div>
   </div>
   <div class="card"><h3>🎯 SOL Price</h3>
-    <div class="v">$%%PRICE%%</div>
+    <div class="v">$<span id="live-sol-price">%%PRICE%%</span></div>
     <div class="sub">%%REGIME_EMOJI%% BTC Regime: %%REGIME_STR%%</div>
   </div>
   <div class="card"><h3>📊 Trades</h3>
@@ -254,6 +254,62 @@ tr:hover{background:rgba(255,255,255,0.02)}
     %%TRADES_ROWS%%
   </table>
 </div>
+
+<script>
+// ─── 시계: 클라이언트 시간으로 1초마다 갱신 (서버 호출 X) ───
+function updateClock() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const s = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate())
+          + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  const el = document.getElementById('live-hdr-time');
+  if (el) el.textContent = s;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ─── 라이브 데이터: 1초마다 /api/status 호출 → DOM 갱신 ───
+async function updateLiveData() {
+  try {
+    const r = await fetch('/api/status', { cache: 'no-store' });
+    if (!r.ok) return;
+    const d = await r.json();
+
+    // SOL 가격
+    const priceEl = document.getElementById('live-sol-price');
+    if (priceEl && typeof d.price === 'number' && d.price > 0) {
+      priceEl.textContent = d.price.toFixed(3);
+    }
+
+    // 포지션이 있으면 현재가/PnL/ROI 갱신
+    if (d.has_position && d.position) {
+      const p = d.position;
+      const curEl = document.getElementById('live-pos-current');
+      if (curEl && typeof d.price === 'number' && d.price > 0) {
+        curEl.textContent = d.price.toFixed(3);
+      }
+      const pnlEl = document.getElementById('live-pos-pnl');
+      if (pnlEl && typeof p.pnl === 'number') {
+        const sign = p.pnl >= 0 ? '+' : '';
+        pnlEl.textContent = '$' + sign + p.pnl.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        pnlEl.classList.remove('win','lose');
+        pnlEl.classList.add(p.pnl >= 0 ? 'win' : 'lose');
+      }
+      const roiEl = document.getElementById('live-pos-roi');
+      if (roiEl && typeof p.roi === 'number') {
+        const sign = p.roi >= 0 ? '+' : '';
+        roiEl.textContent = sign + p.roi.toFixed(2) + '%';
+        roiEl.classList.remove('win','lose');
+        roiEl.classList.add(p.roi >= 0 ? 'win' : 'lose');
+      }
+    }
+  } catch (e) {
+    // 무시 (다음 tick에 재시도)
+  }
+}
+updateLiveData();
+setInterval(updateLiveData, 1000);
+</script>
 </body></html>"""
 
 
@@ -781,7 +837,13 @@ class WebDashboard:
         data = bot.data
 
         # WebSocket price or last bar close
-        price = data.current_price if data and data.current_price > 0 else 0.0
+        price = 0.0
+        if data:
+            if data.current_price > 0:
+                price = float(data.current_price)
+            elif data.df_sol is not None and len(data.df_sol) > 0:
+                # WebSocket 미연결 시 마지막 마감봉 close 폴백
+                price = float(data.df_sol['close'].iloc[-1])
         bar_idx = data.get_latest_index() if data else 0
         ind = data.get_indicators_at(bar_idx) if data else {}
 
@@ -1047,13 +1109,14 @@ class WebDashboard:
   <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:15px">
     <div><div class="sub">방향</div><div class="v">{dir_str}</div></div>
     <div><div class="sub">진입가 (VWAP)</div><div class="v">${p.entry_price:.3f}</div></div>
-    <div><div class="sub">현재가</div><div class="v">${price:.3f}</div></div>
+    <div><div class="sub">현재가</div><div class="v">$<span id="live-pos-current">{price:.3f}</span></div></div>
     <div><div class="sub">Size</div><div class="v">${p.position_size:,.0f}</div></div>
     <div><div class="sub">Margin</div><div class="v">${p.margin_used:,.0f}</div></div>
     <div><div class="sub">SL</div><div class="v">${p.sl_price:.3f}</div></div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-top:12px">
-    <div><div class="sub">Unrealized PnL</div><div class="v {pnl_class}">${unrealized_pnl:+,.2f}</div></div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:15px;margin-top:12px">
+    <div><div class="sub">Unrealized PnL</div><div class="v" id="live-pos-pnl">${unrealized_pnl:+,.2f}</div></div>
+    <div><div class="sub">ROI</div><div class="v" id="live-pos-roi">+0.00%</div></div>
     <div><div class="sub">TSL Active</div><div class="v">{'✅' if p.tsl_active else '❌'}</div></div>
     <div><div class="sub">Peak ROI</div><div class="v">{p.peak_roi:+.2f}%</div></div>
     <div><div class="sub">Leg Count</div><div class="v">{p.leg_count}/3</div></div>
@@ -1556,8 +1619,32 @@ class WebDashboard:
                         'low': round(min(prev_close, cp), 3),
                         'close': round(cp, 3),
                     })
+            # 포지션 상세 정보 (실시간 ROI/PnL 계산은 클라이언트에서)
+            pos_info = None
+            if core.has_position:
+                p = core.position
+                roi = (price - p.entry_price) / p.entry_price * p.direction * 100 if p.entry_price > 0 and price > 0 else 0
+                pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction if p.entry_price > 0 and price > 0 else 0
+                pos_info = {
+                    'direction': p.direction,
+                    'direction_str': 'LONG' if p.direction == 1 else 'SHORT',
+                    'entry_mode': int(p.entry_mode),
+                    'entry_mode_str': 'V12' if p.entry_mode == 1 else 'MASS',
+                    'entry_price': p.entry_price,
+                    'position_size': p.position_size,
+                    'margin_used': p.margin_used,
+                    'sl_price': p.sl_price,
+                    'tsl_active': p.tsl_active,
+                    'peak_roi': p.peak_roi,
+                    'leg_count': p.leg_count,
+                    'roi': roi,
+                    'pnl': pnl,
+                }
+            # 현재 시간 (서버 기준 KST 등 시계 동기화용)
+            now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             return JSONResponse({
                 'price': price,
+                'now': now_str,
                 'last_bars': last_bars,
                 'balance': ex.balance, 'available': ex.available_balance,
                 'peak': core.peak_capital, 'mdd': core.max_drawdown,
@@ -1565,6 +1652,7 @@ class WebDashboard:
                 'pf': core.profit_factor if core.profit_factor != float('inf') else 999,
                 'consec_losses': core.consec_losses, 'skip_remaining': core.skip_remaining,
                 'has_position': core.has_position,
+                'position': pos_info,
             })
 
         @self.app.get('/api/candles')
