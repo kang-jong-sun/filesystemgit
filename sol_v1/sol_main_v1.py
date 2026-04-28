@@ -307,6 +307,24 @@ class SOLTradingBot:
                 await self.executor.update_stop_loss(direction, ex_pos['size'], sl_price)
             except Exception as e:
                 self.logger.warning(f"SL 설정 실패: {e}")
+            # ★ DB entries 테이블에 USER 진입 기록 (이전엔 누락됨)
+            try:
+                await self.executor.save_entry({
+                    'source': 'USER',
+                    'direction': direction,
+                    'entry_mode': int(EntryMode.V12),
+                    'entry_price': entry_price,
+                    'position_size': ex_pos['notional'],
+                    'margin': user_margin,
+                    'leverage': eff_lev,            # 사용자 실제 레버리지 보존
+                    'sl_price': sl_price,
+                    'balance_after': self.executor.balance,
+                    'conf_score': 0,
+                    'conf_mult': 1.0,
+                    'margin_mult': 1.0,
+                })
+            except Exception as e:
+                self.logger.warning(f"수동 포지션 DB 저장 실패: {e}")
             self.telegram.notify_manual_position(direction, entry_price, ex_pos['notional'])
 
         self.core.save_state()
@@ -923,6 +941,28 @@ class SOLTradingBot:
                         ).fetchall()
                         conn.close()
                         if not ent_rows:
+                            # ★ DB 모두 비어있어도 메모리상 추적 중인 포지션이 있으면 표시
+                            if self.core.has_position:
+                                p = self.core.position
+                                d_str = 'LONG' if p.direction == 1 else 'SHORT'
+                                mode = 'V12' if p.entry_mode == 1 else 'MASS'
+                                dir_emoji = '🟢' if p.direction == 1 else '🔴'
+                                from datetime import datetime as _dt
+                                ent_str = _dt.fromtimestamp(p.entry_time).strftime('%m-%d %H:%M') if p.entry_time else '-'
+                                if price > 0 and p.entry_price > 0:
+                                    roi = (price - p.entry_price) / p.entry_price * p.direction * 100
+                                    pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction
+                                    pnl_str = f"${pnl:+,.2f} ({roi:+.2f}%)"
+                                else:
+                                    pnl_str = "N/A"
+                                msg = ("<b>[SOL V1] 📥 추적 중인 포지션</b>\n"
+                                       "(DB 거래/진입 기록 없음 — 메모리 state 표시)\n\n"
+                                       f"{dir_emoji} <b>{d_str}</b> [{mode}] | 진입 {ent_str}\n"
+                                       f"  Entry ${p.entry_price:.3f} | Current ${price:.3f}\n"
+                                       f"  Size ${p.position_size:,.0f} | Margin ${p.margin_used:,.0f} | Lev {eff_lev}x\n"
+                                       f"  SL ${p.sl_price:.3f} | 미실현 PnL: {pnl_str}")
+                                self.telegram.send(msg)
+                                return
                             self.telegram.send("<b>[SOL V1]</b> 거래/진입 내역 없음")
                             return
                         lines = ["<b>[SOL V1] 📥 최근 진입 (청산 전)</b>",

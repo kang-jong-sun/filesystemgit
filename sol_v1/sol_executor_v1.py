@@ -335,6 +335,8 @@ class OrderExecutor:
         dir_str = 'LONG' if entry_info['direction'] == 1 else 'SHORT'
         mode_str = 'V12' if entry_info.get('entry_mode') == 1 else 'MASS'
         source = entry_info.get('source', 'BOT')
+        # ★ leverage: 호출자가 명시하면 그 값(USER 사용자 설정), 아니면 동적 추적값
+        used_lev = int(entry_info.get('leverage') or self.leverage or LEVERAGE)
         if self.db:
             try:
                 await self.db.execute('''INSERT INTO entries
@@ -343,7 +345,7 @@ class OrderExecutor:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                     (now_str, source, dir_str, mode_str,
                      entry_info['entry_price'], entry_info['position_size'],
-                     entry_info['margin'], LEVERAGE, entry_info['sl_price'],
+                     entry_info['margin'], used_lev, entry_info['sl_price'],
                      entry_info.get('balance_after', 0),
                      entry_info.get('conf_score', 0), entry_info.get('conf_mult', 1),
                      entry_info.get('margin_mult', 1)))
