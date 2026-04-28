@@ -256,7 +256,7 @@ tr:hover{background:rgba(255,255,255,0.02)}
 </div>
 
 <script>
-// ─── 시계: 클라이언트 시간으로 1초마다 갱신 (서버 호출 X) ───
+// ─── 시계 + 보유 시간: 1초마다 갱신 (서버 호출 X) ───
 function updateClock() {
   const d = new Date();
   const pad = n => String(n).padStart(2, '0');
@@ -264,6 +264,25 @@ function updateClock() {
           + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
   const el = document.getElementById('live-hdr-time');
   if (el) el.textContent = s;
+  // 포지션 보유 시간 (entry_ts data attribute 기반 클라이언트 계산)
+  const holdEl = document.getElementById('live-pos-hold');
+  const entryEl = document.getElementById('live-pos-entry-time');
+  if (holdEl && entryEl) {
+    const ts = parseFloat(entryEl.dataset.entryTs || '0');
+    if (ts > 0) {
+      let sec = Math.floor(Date.now()/1000 - ts);
+      if (sec < 0) sec = 0;
+      const days = Math.floor(sec / 86400);
+      const hours = Math.floor((sec % 86400) / 3600);
+      const mins = Math.floor((sec % 3600) / 60);
+      const secs = sec % 60;
+      let str;
+      if (days > 0) str = days + 'd ' + hours + 'h ' + mins + 'm ' + secs + 's';
+      else if (hours > 0) str = hours + 'h ' + mins + 'm ' + secs + 's';
+      else str = mins + 'm ' + secs + 's';
+      holdEl.textContent = str;
+    }
+  }
 }
 updateClock();
 setInterval(updateClock, 1000);
@@ -307,6 +326,15 @@ async function updateLiveData() {
         const sign = p.roi >= 0 ? '+' : '';
         setText('live-pos-roi', sign + p.roi.toFixed(2) + '%');
         setClass('live-pos-roi', p.roi >= 0 ? 'win' : 'lose', ['win','lose']);
+      }
+      // 진입 시각 갱신 (포지션 새로 잡혔거나 변경되면)
+      const entryEl = document.getElementById('live-pos-entry-time');
+      if (entryEl && p.entry_time && p.entry_time_str) {
+        const curTs = parseFloat(entryEl.dataset.entryTs || '0');
+        if (Math.abs(curTs - p.entry_time) > 0.5) {
+          entryEl.dataset.entryTs = p.entry_time;
+          entryEl.textContent = p.entry_time_str;
+        }
       }
     }
 
@@ -1151,6 +1179,14 @@ class WebDashboard:
                     unrealized_pnl = (p.entry_price - price) / p.entry_price * p.position_size
             pnl_class = 'win' if unrealized_pnl >= 0 else 'lose'
             from sol_executor_v1 import LEVERAGE as EX_LEVERAGE
+            entry_ts = float(p.entry_time) if p.entry_time else 0
+            entry_time_str = datetime.fromtimestamp(entry_ts).strftime('%Y-%m-%d %H:%M:%S') if entry_ts > 0 else '-'
+            # 보유 시간 (서버 초기 렌더, 클라이언트가 1초마다 재계산)
+            hold_sec = int(time.time() - entry_ts) if entry_ts > 0 else 0
+            d_, rem = divmod(hold_sec, 86400)
+            h_, rem = divmod(rem, 3600)
+            m_, s_ = divmod(rem, 60)
+            hold_str = f"{d_}d {h_}h {m_}m {s_}s" if d_ > 0 else (f"{h_}h {m_}m {s_}s" if h_ > 0 else f"{m_}m {s_}s")
             position_block = f"""
 <div class="pos {dir_class}">
   <h3 style="margin:0 0 10px;color:#eab308">📍 현재 포지션 [{mode_str}]</h3>
@@ -1169,6 +1205,10 @@ class WebDashboard:
     <div><div class="sub">TSL Active</div><div class="v">{'✅' if p.tsl_active else '❌'}</div></div>
     <div><div class="sub">Peak ROI</div><div class="v">{p.peak_roi:+.2f}%</div></div>
     <div><div class="sub">Leg Count</div><div class="v">{p.leg_count}/3</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-top:12px;padding-top:12px;border-top:1px solid #334155">
+    <div><div class="sub">📅 진입 시각</div><div class="v" style="font-size:14px" id="live-pos-entry-time" data-entry-ts="{entry_ts:.0f}">{entry_time_str}</div></div>
+    <div><div class="sub">⏱ 보유 시간</div><div class="v" style="font-size:14px;color:#4ade80" id="live-pos-hold">{hold_str}</div></div>
   </div>
 </div>"""
         else:
@@ -1674,6 +1714,11 @@ class WebDashboard:
                 p = core.position
                 roi = (price - p.entry_price) / p.entry_price * p.direction * 100 if p.entry_price > 0 and price > 0 else 0
                 pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction if p.entry_price > 0 and price > 0 else 0
+                # 진입 시각/보유 시간
+                entry_ts = float(p.entry_time) if p.entry_time else 0
+                entry_str = ''
+                if entry_ts > 0:
+                    entry_str = datetime.fromtimestamp(entry_ts).strftime('%Y-%m-%d %H:%M:%S')
                 pos_info = {
                     'direction': p.direction,
                     'direction_str': 'LONG' if p.direction == 1 else 'SHORT',
@@ -1688,6 +1733,8 @@ class WebDashboard:
                     'leg_count': p.leg_count,
                     'roi': roi,
                     'pnl': pnl,
+                    'entry_time': entry_ts,        # Unix timestamp (클라이언트 보유시간 계산용)
+                    'entry_time_str': entry_str,    # 표시용
                 }
             # 현재 시간 (서버 기준 KST 등 시계 동기화용)
             now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
