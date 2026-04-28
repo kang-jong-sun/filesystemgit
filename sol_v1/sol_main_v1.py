@@ -48,7 +48,7 @@ VERSION = "1.0"
 LOOP_INTERVAL = 10         # 메인 루프 (초) - 실시간 체크 주기
 CANDLE_CHECK = 30          # 봉 업데이트 체크 (초)
 BALANCE_CHECK = 300        # 잔액 조회 주기 (초)
-POSITION_SYNC = 60         # 포지션 동기화 주기 (초)
+POSITION_SYNC = 10         # 포지션 동기화 주기 (초) — ETH V8 패턴: 수동 포지션 즉각 감지
 STATUS_REPORT = 10800      # 텔레그램 상태 리포트 (3시간)
 STATE_SAVE_INTERVAL = 60   # 상태 저장 주기 (초)
 HEARTBEAT_INTERVAL = 300   # 로그 heartbeat (5분) - 봇 살아있음 표시
@@ -189,6 +189,7 @@ class SOLTradingBot:
         self._last_state_save = 0.0
         self._last_heartbeat = 0.0
         self._last_processed_bar_idx = -1
+        self._start_time = time.time()  # uptime 계산용
 
     async def initialize(self):
         load_dotenv()
@@ -243,6 +244,16 @@ class SOLTradingBot:
     async def _check_manual_position(self):
         ex_pos = await self.executor.get_exchange_position()
         if not ex_pos:
+            # 거래소에 포지션 없음 — 봇 정지 중 사용자가 수동 청산했을 가능성
+            # state에 포지션 흔적 + 거래소에 SL orphan이 남아있을 수 있으므로 정리
+            if self.core.has_position:
+                self.logger.info("거래소 포지션 없음 — state 청산 처리 (사용자 수동 청산 추정)")
+                exit_price = self.data.current_price if self.data and self.data.current_price > 0 else self.core.position.entry_price
+                from sol_core_v1 import Signal
+                rec_sig = Signal(action='EXIT', direction=self.core.position.direction,
+                                 exit_type='MANUAL', exit_price=exit_price)
+                self.core.apply_exit(rec_sig, timestamp=time.time())
+            await self.executor._cancel_all_sl_orders()  # orphan SL 청소
             self.core.save_state()
             return
 
@@ -252,6 +263,12 @@ class SOLTradingBot:
             self.core.position.position_size = ex_pos['notional']
             self.core.position.margin_used = ex_pos['notional'] / LEVERAGE
             self.logger.info("기존 포지션 상태 복원")
+            # SL이 거래소에 있는지 확인하고 없으면 다시 등록
+            try:
+                sl_price = self.core.position.sl_price
+                await self.executor.update_stop_loss(ex_pos['direction'], ex_pos['size'], sl_price)
+            except Exception as e:
+                self.logger.warning(f"기존 포지션 SL 재등록 실패: {e}")
         else:
             # 수동 포지션 감지 → 트래킹 시작
             self.logger.warning("수동 포지션 감지! 트래킹 시작.")
@@ -551,31 +568,88 @@ class SOLTradingBot:
             self.telegram.notify_error(f"Pyramid error: {str(e)[:200]}")
 
     async def _sync_position(self):
-        """봇 상태 vs 거래소 포지션 동기화"""
+        """봇 상태 vs 거래소 포지션 동기화 — ETH V8 패턴 (3가지 케이스)"""
         try:
             ex_pos = await self.executor.get_exchange_position()
-            if self.core.has_position and not ex_pos:
-                # 봇은 포지션 있다고 생각 but 거래소에 없음 → 외부 청산 감지
-                self.logger.warning("외부 청산 감지! 상태 리셋.")
+            bot_has = self.core.has_position
+
+            # 케이스 A: 봇 없는데 거래소에 있음 → 수동 진입 감지
+            if ex_pos and not bot_has:
+                self.logger.warning("수동 포지션 감지!")
+                await self._check_manual_position()
+
+            # 케이스 B: 봇 있는데 거래소에 없음 → 외부 청산 감지
+            elif not ex_pos and bot_has:
+                # 거래소 SL 주문 청소 (orphan)
+                await self.executor._cancel_all_sl_orders()
+                # 실제 체결가 조회 (외부 SL 발동 / 수동 청산)
+                actual_exit_price = await self.executor.get_last_exit_price()
+                if actual_exit_price <= 0:
+                    actual_exit_price = self.data.current_price or self.core.position.entry_price
                 pos_before = self.core.position
                 dir_str = 'LONG' if pos_before.direction == 1 else 'SHORT'
                 # 📈 trades.log 기록 (외부 청산)
                 self.trade_log.info(
-                    f"[EXTERNAL EXIT] {dir_str} @${self.data.current_price:.3f} | "
+                    f"[EXTERNAL EXIT] {dir_str} @${actual_exit_price:.3f} | "
                     f"Entry ${pos_before.entry_price:.3f} | 수동/SL 외부 체결"
                 )
                 from sol_core_v1 import Signal
-                rec_sig = Signal(action='EXIT', direction=self.core.position.direction,
-                                 exit_type='EXT', exit_price=self.data.current_price)
-                self.core.apply_exit(rec_sig, timestamp=time.time())
-                self.telegram.notify_error(f"외부 청산 감지. 봇 상태 동기화.")
+                rec_sig = Signal(action='EXIT', direction=pos_before.direction,
+                                 exit_type='EXT', exit_price=actual_exit_price)
+                rec = self.core.apply_exit(rec_sig, timestamp=time.time())
+                # DB 저장
+                try:
+                    await self.executor.save_trade({
+                        'direction': rec.direction, 'entry_mode': rec.entry_mode,
+                        'entry_price': rec.entry_price, 'exit_price': rec.exit_price,
+                        'position_size': rec.position_size, 'pnl': rec.pnl,
+                        'exit_type': rec.exit_type, 'roi_pct': rec.roi_pct,
+                        'peak_roi': rec.peak_roi, 'leg_count': rec.leg_count,
+                        'source': 'USER',
+                    })
+                except Exception as e:
+                    self.logger.warning(f"외부 청산 DB 저장 실패: {e}")
+                # 텔레그램 청산 알림 (error 알림 대신 정상 exit 알림)
+                self.telegram.notify_exit({
+                    'direction': rec.direction, 'entry_mode': rec.entry_mode,
+                    'entry_price': rec.entry_price, 'exit_price': rec.exit_price,
+                    'pnl': rec.pnl, 'roi_pct': rec.roi_pct, 'peak_roi': rec.peak_roi,
+                    'exit_type': 'EXT', 'balance': self.executor.balance,
+                })
                 self.core.save_state()
-            elif not self.core.has_position and ex_pos:
-                # 봇은 없다고 하는데 거래소에 포지션 → 수동 진입 감지
-                self.logger.warning("수동 포지션 감지!")
+
+            # 케이스 C: 봇/거래소 모두 있는데 방향 다름 → 사용자가 수동으로 반대 포지션 잡음
+            elif ex_pos and bot_has and ex_pos['direction'] != self.core.position.direction:
+                self.logger.warning(f"포지션 방향 불일치! "
+                                    f"봇={self.core.position.direction} vs 거래소={ex_pos['direction']} → "
+                                    f"봇 포지션 청산 후 새 포지션 추적")
+                # 옛 SL 청소
+                await self.executor._cancel_all_sl_orders()
+                # 옛 포지션 close (실체결가)
+                actual_exit_price = await self.executor.get_last_exit_price()
+                if actual_exit_price <= 0:
+                    actual_exit_price = self.data.current_price or self.core.position.entry_price
+                pos_before = self.core.position
+                from sol_core_v1 import Signal
+                rec_sig = Signal(action='EXIT', direction=pos_before.direction,
+                                 exit_type='EXT', exit_price=actual_exit_price)
+                rec = self.core.apply_exit(rec_sig, timestamp=time.time())
+                try:
+                    await self.executor.save_trade({
+                        'direction': rec.direction, 'entry_mode': rec.entry_mode,
+                        'entry_price': rec.entry_price, 'exit_price': rec.exit_price,
+                        'position_size': rec.position_size, 'pnl': rec.pnl,
+                        'exit_type': 'EXT', 'roi_pct': rec.roi_pct,
+                        'peak_roi': rec.peak_roi, 'leg_count': rec.leg_count,
+                        'source': 'USER',
+                    })
+                except Exception as e:
+                    self.logger.warning(f"방향전환 DB 저장 실패: {e}")
+                # 새 포지션 track + 새 SL
                 await self._check_manual_position()
+                self.core.save_state()
         except Exception as e:
-            self.logger.error(f"포지션 동기화 오류: {e}")
+            self.logger.error(f"포지션 동기화 오류: {e}\n{traceback.format_exc()[:300]}")
 
     async def _log_heartbeat(self):
         """5분마다 현재 상태 간략 로그 (가시성)"""
@@ -621,37 +695,231 @@ class SOLTradingBot:
         self.telegram.notify_status(stats)
 
     async def _handle_command(self, cmd: str):
-        cmd = cmd.strip().lower()
-        if cmd == '/status':
-            self._send_status_report()
-        elif cmd == '/balance':
-            await self.executor.update_balance()
-            self.telegram.send(f"💰 잔액: ${self.executor.balance:,.2f}")
-        elif cmd == '/stop':
-            self.telegram.send("🛑 봇 종료 요청 접수. 현재 포지션 유지 후 종료.")
-            self._running = False
-            self._shutdown_event.set()
-        elif cmd == '/close':
-            if self.core.has_position:
-                pos = self.core.position
-                result = await self.executor.market_exit(direction=pos.direction)
-                if result:
+        """텔레그램 명령어 처리 (ETH V8 패턴).
+        구조:
+          /help — 공용 (모든 봇 응답)
+          /sol <한글> — SOL 봇 전용 (대소문자 / 공백 유무 무관)
+          그 외 명령은 무시 (ETH 봇 등과 충돌 방지)
+        """
+        try:
+            text = (cmd or '').strip()
+            if not text:
+                return
+            words = text.split()
+            first_word_raw = words[0].split('@')[0]
+            first_lower = first_word_raw.lower()
+
+            # === /help (공용) ===
+            if first_lower == '/help':
+                self.telegram.send(
+                    "<b>[SOL V1] 명령어</b>\n"
+                    "/sol 상태 — 봇 전체 상태\n"
+                    "/sol 포지션 — 포지션 상세\n"
+                    "/sol 잔액 — 잔액\n"
+                    "/sol 최근거래 — 최근 5건 거래\n"
+                    "/sol 봇정지 — 봇 정지 (systemd 자동 재시작)\n"
+                    "/sol 봇시작 — 상태 확인 후 재시작\n"
+                    "/sol 청산 — 포지션 수동 청산\n"
+                    "(/sol, /SOL, /Sol + 공백 유무 모두 가능)"
+                )
+                return
+
+            # === /sol 분기 (대소문자 + 공백 유무 모두 허용) ===
+            if not first_lower.startswith('/sol'):
+                return  # 다른 명령은 무시 (ETH 봇 등에 양보)
+
+            # /sol 다음 모든 문자 결합 (공백 제거)
+            remainder = first_word_raw[4:]  # /sol(4글자) 이후
+            extras = ''.join(words[1:]) if len(words) > 1 else ''
+            sub = (remainder + extras).strip()
+
+            from sol_core_v1 import LEVERAGE
+            price = self.data.current_price if self.data and self.data.current_price > 0 else 0.0
+            uptime = time.time() - self._start_time
+            h, rem = divmod(int(max(uptime, 0)), 3600)
+            m, _s = divmod(rem, 60)
+
+            # === /sol 상태 ===
+            if sub in ('상태', '전체상태', ''):
+                pos_str = "NO POSITION"
+                if self.core.has_position:
+                    p = self.core.position
+                    roi = (price - p.entry_price) / p.entry_price * p.direction * 100 if p.entry_price > 0 else 0
+                    pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction if p.entry_price > 0 else 0
+                    d = "LONG" if p.direction == 1 else "SHORT"
+                    mode = 'V12' if p.entry_mode == 1 else 'MASS'
+                    pos_str = (f"{d} [{mode}] @${p.entry_price:.3f}\n"
+                               f"  ROI: {roi:+.2f}% | PnL: ${pnl:+,.2f}\n"
+                               f"  SL: ${p.sl_price:.3f} | TSL: {'ON' if p.tsl_active else 'OFF'}")
+                self.telegram.send(
+                    f"<b>[SOL V1] 상태</b>\n"
+                    f"Uptime: {h}h {m}m\n"
+                    f"Price: ${price:.3f}\n"
+                    f"Leverage: {LEVERAGE}x\n\n"
+                    f"<b>Position:</b> {pos_str}\n\n"
+                    f"<b>Balance:</b> ${self.executor.balance:,.2f}\n"
+                    f"Trades: {self.core.total_trades} | WR: {self.core.win_rate:.0f}%\n"
+                    f"PF: {self.core.profit_factor:.2f}\n"
+                    f"Consec: {self.core.consec_losses}/4 | Skip: {self.core.skip_remaining}"
+                )
+
+            # === /sol 포지션 ===
+            elif sub == '포지션':
+                if not self.core.has_position:
+                    self.telegram.send("<b>[SOL V1]</b> 보유 포지션 없음")
+                    return
+                p = self.core.position
+                roi = (price - p.entry_price) / p.entry_price * p.direction * 100 if p.entry_price > 0 else 0
+                pnl = (price - p.entry_price) / p.entry_price * p.position_size * p.direction if p.entry_price > 0 else 0
+                d = "LONG" if p.direction == 1 else "SHORT"
+                mode = 'V12' if p.entry_mode == 1 else 'MASS'
+                hold = time.time() - p.entry_time
+                hh, rm = divmod(int(hold), 3600)
+                mm, _ = divmod(rm, 60)
+                self.telegram.send(
+                    f"<b>[SOL V1] 포지션</b>\n"
+                    f"Direction: {d} [{mode}]\n"
+                    f"Entry: ${p.entry_price:.3f}\n"
+                    f"Current: ${price:.3f}\n"
+                    f"Size: ${p.position_size:,.0f}\n"
+                    f"Margin: ${p.margin_used:,.0f}\n"
+                    f"ROI: {roi:+.2f}% | PnL: ${pnl:+,.2f}\n"
+                    f"SL: ${p.sl_price:.3f}\n"
+                    f"TSL: {'ON' if p.tsl_active else 'OFF'}\n"
+                    f"Peak ROI: {p.peak_roi:+.2f}%\n"
+                    f"Hold: {hh}h {mm}m"
+                )
+
+            # === /sol 잔액 ===
+            elif sub == '잔액':
+                await self.executor.update_balance()
+                self.telegram.send(
+                    f"<b>[SOL V1] 잔액</b>\n"
+                    f"Wallet: ${self.executor.balance:,.2f}\n"
+                    f"Available: ${self.executor.available_balance:,.2f}\n"
+                    f"Peak: ${self.core.peak_capital:,.2f}\n"
+                    f"MDD: {self.core.max_drawdown*100:.1f}%"
+                )
+
+            # === /sol 최근거래 (DB에서 직접 조회 — 봇 재시작에도 영속) ===
+            elif sub in ('최근거래', '거래'):
+                import sqlite3
+                from datetime import datetime, timedelta
+                try:
+                    conn = sqlite3.connect('sol_trading_bot.db')
+                    rows = conn.execute(
+                        "SELECT timestamp, source, direction, entry_mode, entry_price, exit_price, "
+                        "pnl, roi_pct, exit_type, hold_time FROM trades ORDER BY id DESC LIMIT 5"
+                    ).fetchall()
+                    if not rows:
+                        conn.close()
+                        self.telegram.send("<b>[SOL V1]</b> 거래 내역 없음")
+                        return
+
+                    def src_tag(s):
+                        s = (s or 'BOT').upper()
+                        if 'TG' in s: return 'TG'
+                        if 'USER' in s: return 'USER'
+                        return 'BOT'
+
+                    lines = ["<b>[SOL V1] 📊 최근 거래 (5건)</b>"]
+                    for ts, src, d_str, mode, ep, xp, pnl, roi, et, ht in reversed(rows):
+                        try:
+                            close_dt = datetime.strptime(ts, '%Y-%m-%d %H:%M:%S')
+                            entry_dt = close_dt - timedelta(seconds=ht or 0)
+                            entry_str = entry_dt.strftime('%m-%d %H:%M')
+                            close_str = close_dt.strftime('%m-%d %H:%M')
+                        except Exception:
+                            entry_str = '?'
+                            close_str = ts[5:16] if len(ts) >= 16 else ts
+
+                        exit_src = src_tag(src)
+                        dir_emoji = '🟢' if d_str == 'LONG' else '🔴'
+                        pnl_emoji = '✅' if pnl > 0 else '❌'
+
+                        lines.append("")
+                        lines.append(f"{dir_emoji} <b>진입</b> | {entry_str} | "
+                                     f"<b>{d_str}</b> [{mode}] | ${ep:.3f}")
+                        lines.append(f"{pnl_emoji} <b>청산</b> | {close_str} | "
+                                     f"<b>{et}</b> [{exit_src}] | ${xp:.3f} | "
+                                     f"<b>${pnl:+,.2f}</b> ({roi:+.2f}%)")
+                    conn.close()
+                    self.telegram.send("\n".join(lines))
+                except Exception as e:
+                    self.logger.error(f"거래 내역 조회 실패: {e}")
+                    self.telegram.send(f"<b>[SOL V1]</b> 거래 조회 실패: {str(e)[:100]}")
+
+            # === /sol 봇정지 ===
+            elif sub in ('봇정지', '정지'):
+                self.logger.info("텔레그램 /sol 봇정지 명령 수신")
+                self.telegram.send("<b>[SOL V1]</b> 봇 정지 요청 (systemd 자동 재시작)")
+                self._running = False
+                self._shutdown_event.set()
+
+            # === /sol 봇시작 (상태 확인 후 재시작) ===
+            elif sub in ('봇시작', '시작'):
+                self.logger.info("텔레그램 /sol 봇시작 명령 수신")
+                pos_count = 1 if self.core.has_position else 0
+                self.telegram.send(
+                    f"<b>[SOL V1] 봇 재시작</b>\n"
+                    f"잔액: ${self.executor.balance:,.2f} | 포지션: {pos_count}\n"
+                    f"Leverage: {LEVERAGE}x\n"
+                    f"→ systemd 자동 재시작 진행..."
+                )
+                self._running = False
+                self._shutdown_event.set()
+
+            # === /sol 청산 (수동 포지션 청산) ===
+            elif sub == '청산':
+                if not self.core.has_position:
+                    self.telegram.send("<b>[SOL V1]</b> 청산할 포지션 없음")
+                    return
+                p = self.core.position
+                d = "LONG" if p.direction == 1 else "SHORT"
+                self.telegram.send(
+                    f"<b>[SOL V1] 수동 청산 처리 중</b>\n"
+                    f"{d} @${p.entry_price:.3f} → 시장가 청산 요청"
+                )
+                # 비동기 실제 청산
+                try:
+                    await self.executor._cancel_all_sl_orders()
+                    result = await self.executor.market_exit(direction=p.direction)
+                    if not result:
+                        self.telegram.send("<b>[SOL V1]</b> 수동 청산 실패: 거래소 응답 없음")
+                        return
+                    actual_price = result.get('filled_price') or price or p.entry_price
                     from sol_core_v1 import Signal
-                    sig = Signal(action='EXIT', direction=pos.direction,
-                                 exit_type='MANUAL', exit_price=result['filled_price'])
-                    await self._handle_exit(sig)
-                    self.telegram.send("✅ 수동 청산 완료")
+                    sig = Signal(action='EXIT', direction=p.direction,
+                                 exit_type='TG-MANUAL', exit_price=actual_price)
+                    rec = self.core.apply_exit(sig, timestamp=time.time())
+                    await self.executor.update_balance()
+                    self.core.update_peak(self.executor.balance)
+                    await self.executor.save_trade({
+                        'direction': rec.direction, 'entry_mode': rec.entry_mode,
+                        'entry_price': rec.entry_price, 'exit_price': rec.exit_price,
+                        'position_size': rec.position_size, 'pnl': rec.pnl,
+                        'exit_type': 'TG-MANUAL', 'roi_pct': rec.roi_pct,
+                        'peak_roi': rec.peak_roi, 'leg_count': rec.leg_count,
+                        'source': 'TG-USER',
+                    })
+                    self.telegram.notify_exit({
+                        'direction': rec.direction, 'entry_mode': rec.entry_mode,
+                        'entry_price': rec.entry_price, 'exit_price': rec.exit_price,
+                        'pnl': rec.pnl, 'roi_pct': rec.roi_pct, 'peak_roi': rec.peak_roi,
+                        'exit_type': 'TG-MANUAL', 'balance': self.executor.balance,
+                    })
+                    self.core.save_state()
+                except Exception as e:
+                    self.logger.error(f"텔레그램 수동 청산 오류: {e}")
+                    self.telegram.send(f"<b>[SOL V1]</b> 수동 청산 오류: {str(e)[:150]}")
+
+            # === 알 수 없는 서브커맨드 ===
             else:
-                self.telegram.send("포지션 없음")
-        elif cmd == '/help':
-            self.telegram.send(
-                "📋 <b>사용 가능 명령</b>\n\n"
-                "/status - 상태 리포트\n"
-                "/balance - 잔액 조회\n"
-                "/close - 수동 청산\n"
-                "/stop - 봇 종료\n"
-                "/help - 이 메시지"
-            )
+                self.telegram.send(f"<b>[SOL V1]</b> 알 수 없는 명령: '/sol {sub}'\n/help 참조")
+
+        except Exception as e:
+            self.logger.error(f"명령어 처리 오류: {e}\n{traceback.format_exc()[:300]}")
+            self.telegram.send(f"<b>[SOL V1]</b> Error: {str(e)[:200]}")
 
     async def _shutdown(self):
         self._shutdown_done = True

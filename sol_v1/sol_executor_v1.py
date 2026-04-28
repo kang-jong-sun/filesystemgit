@@ -220,43 +220,79 @@ class OrderExecutor:
             raise
 
     async def _set_stop_loss(self, direction: int, qty: float, sl_price: float) -> str:
+        # ★ 등록 전 항상 거래소의 모든 기존 SL 주문 청소 (orphan 누적 방지)
+        await self._cancel_all_sl_orders()
+
         side = 'sell' if direction == 1 else 'buy'
         sl_price_rounded = round(sl_price, 3)
         params = {'reduceOnly': True}
         if self.hedge_mode:
             params = {'positionSide': 'LONG' if direction == 1 else 'SHORT', 'reduceOnly': True}
 
+        # ccxt unified params (STOP_MARKET용)
+        ccxt_params = dict(params)
+        ccxt_params['stopPrice'] = sl_price_rounded
+
         methods = [
+            ('STOP_MARKET', lambda: self.exchange.create_order(
+                SYMBOL, 'STOP_MARKET', side, qty, None, ccxt_params)),
             ('create_stop_loss_order', lambda: self.exchange.create_stop_loss_order(
                 SYMBOL, 'market', side, qty, stopLossPrice=sl_price_rounded, params=params)),
             ('create_trigger_order', lambda: self.exchange.create_trigger_order(
                 SYMBOL, 'market', side, qty, triggerPrice=sl_price_rounded, params=params)),
         ]
+        last_error = None
         for method_name, method_fn in methods:
             try:
                 order = await method_fn()
                 self.sl_order_id = order['id']
-                logger.info(f"SL 주문 설정: ${sl_price_rounded:.3f} (id={self.sl_order_id})")
+                logger.info(f"SL 등록 ({method_name}): id={self.sl_order_id} @${sl_price_rounded:.3f}")
                 return self.sl_order_id
             except Exception as e:
+                last_error = e
                 logger.debug(f"{method_name} 실패: {e}")
                 continue
 
+        logger.warning(f"SL 등록 모든 방법 실패. 마지막 오류: {last_error}")
         self.sl_order_id = None
         return 'BOT_MANAGED'
 
-    async def _cancel_sl_order(self):
-        if self.sl_order_id and self.sl_order_id != 'BOT_MANAGED':
-            try:
-                await self.exchange.cancel_order(self.sl_order_id, SYMBOL)
-                logger.debug(f"SL 주문 취소: {self.sl_order_id}")
-            except Exception:
-                pass
+    async def _cancel_all_sl_orders(self):
+        """SOLUSDT의 모든 conditional stop 주문 청소 (orphan 누적 방지).
+        ccxt가 STOP_MARKET을 algo conditional endpoint로 라우팅하므로
+        params={'stop': True}로 조회/취소해야 함."""
+        try:
+            orders = await self.exchange.fetch_open_orders(SYMBOL, params={'stop': True})
+            cancelled = 0
+            for o in orders:
+                try:
+                    await self.exchange.cancel_order(o['id'], SYMBOL, params={'stop': True})
+                    cancelled += 1
+                except Exception:
+                    pass
+            if cancelled > 0:
+                logger.info(f"기존 SL 주문 {cancelled}개 청소")
+        except Exception as e:
+            logger.debug(f"SL 청소 조회 실패: {e}")
         self.sl_order_id = None
 
+    async def _cancel_sl_order(self):
+        # 호환용 — 모든 SL 주문 청소 (단일 ID 추적은 부정확하므로)
+        await self._cancel_all_sl_orders()
+
     async def update_stop_loss(self, direction: int, qty: float, new_sl_price: float) -> str:
-        await self._cancel_sl_order()
+        await self._cancel_all_sl_orders()
         return await self._set_stop_loss(direction, qty, new_sl_price)
+
+    async def get_last_exit_price(self) -> float:
+        """최근 체결가 조회 — 외부 청산(SL 발동/수동) 시 실제 체결가 확보용"""
+        try:
+            trades = await self.exchange.fetch_my_trades(SYMBOL, limit=5)
+            if trades:
+                return float(trades[-1].get('price', 0))
+        except Exception:
+            pass
+        return 0.0
 
     async def save_entry(self, entry_info: dict):
         now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
