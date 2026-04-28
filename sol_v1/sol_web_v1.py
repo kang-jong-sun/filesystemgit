@@ -390,7 +390,7 @@ tr:hover{background:rgba(255,255,255,0.02)}
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 <span id="live-hdr-time">%%CURRENT_TIME%%</span></span></div>
   <div class="nav">
     <a href="/">Dashboard</a>
     <a href="/chart">Chart</a>
@@ -416,6 +416,10 @@ tr:hover{background:rgba(255,255,255,0.02)}
   </table>
   <div class="pagination">%%PAGINATION%%</div>
 </div>
+<script>
+function updateClock(){const d=new Date(),p=n=>String(n).padStart(2,'0');const s=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());const e=document.getElementById('live-hdr-time');if(e)e.textContent=s;}
+updateClock();setInterval(updateClock,1000);
+</script>
 </body></html>"""
 
 
@@ -454,7 +458,7 @@ tr:hover{background:rgba(255,255,255,0.02)}
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 <span id="live-hdr-time">%%CURRENT_TIME%%</span></span></div>
   <div class="nav">
     <a href="/">Dashboard</a>
     <a href="/chart">Chart</a>
@@ -502,6 +506,10 @@ tr:hover{background:rgba(255,255,255,0.02)}
   </table>
   <div class="meta" style="margin-top:10px">※ daily_summary.log 파일에서 읽어옵니다</div>
 </div>
+<script>
+function updateClock(){const d=new Date(),p=n=>String(n).padStart(2,'0');const s=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());const e=document.getElementById('live-hdr-time');if(e)e.textContent=s;}
+updateClock();setInterval(updateClock,1000);
+</script>
 </body></html>"""
 
 
@@ -537,7 +545,7 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 <span id="live-hdr-time">%%CURRENT_TIME%%</span></span></div>
   <div class="nav">
     <a href="/">Dashboard</a>
     <a href="/chart">Chart</a>
@@ -580,6 +588,8 @@ function filter(level) {
     else line.style.display = line.classList.contains('level-' + level) ? '' : 'none';
   });
 }
+function updateClock(){const d=new Date(),p=n=>String(n).padStart(2,'0');const s=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());const e=document.getElementById('live-hdr-time');if(e)e.textContent=s;}
+updateClock();setInterval(updateClock,1000);
 </script>
 </body></html>"""
 
@@ -615,7 +625,7 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
 </style></head>
 <body>
 <div class="topbar">
-  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 %%CURRENT_TIME%%</span></div>
+  <div class="brand">🪙 SOL V1 <span style="font-size:13px;color:#94a3b8;font-weight:400;margin-left:8px">🕐 <span id="live-hdr-time">%%CURRENT_TIME%%</span></span></div>
   <div class="nav">
     <a href="/">Dashboard</a>
     <a href="/chart" class="active-tab">Chart</a>
@@ -810,6 +820,9 @@ async function updateCurrentBar() {
   } catch(e) {}
 }
 setInterval(updateCurrentBar, 5000);
+
+function updateClock(){const d=new Date(),p=n=>String(n).padStart(2,'0');const s=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());const e=document.getElementById('live-hdr-time');if(e)e.textContent=s;}
+updateClock();setInterval(updateClock,1000);
 </script>
 </body></html>"""
 
