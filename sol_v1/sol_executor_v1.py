@@ -24,7 +24,7 @@ logger = logging.getLogger('sol_executor')
 
 SYMBOL = 'SOL/USDT:USDT'       # ccxt.binanceusdm perpetual swap 포맷
 BINANCE_SYMBOL = 'SOLUSDT'
-LEVERAGE = 2                   # 🧪 TEST MODE: 2x (원래 10x)
+LEVERAGE = 5                   # 🧪 TEST MODE: 5x (원래 10x, 이전 2x)
 MARGIN_MODE = 'isolated'
 FEE_RATE = 0.0005
 DB_PATH = 'sol_trading_bot.db'

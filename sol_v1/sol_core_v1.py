@@ -123,7 +123,7 @@ MASS_TSL_PCT = 8.0               # Mass TSL -8%
 # ═══════════════════════════════════════════════════════════
 # Global Parameters
 # ═══════════════════════════════════════════════════════════
-LEVERAGE = 2                     # 🧪 TEST MODE: 2x (원래 10x)
+LEVERAGE = 5                     # 🧪 TEST MODE: 5x (원래 10x, 이전 2x)
 FEE_RATE = 0.0005                # 0.05% taker
 SLIPPAGE = 0.0005                # 0.05% slippage
 
