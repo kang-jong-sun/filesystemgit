@@ -50,6 +50,8 @@ class OrderExecutor:
         self.exchange_position: Optional[dict] = None
         self.sl_order_id: Optional[str] = None
         self.hedge_mode: bool = False
+        self.leverage: int = LEVERAGE         # 거래소에서 동적 갱신 (사용자 변경 추적)
+        self.leverage_warned: bool = False    # 변경 감지 1회 알림 플래그
 
     async def initialize(self):
         # Markets 먼저 로드 (심볼 인식용)
@@ -58,11 +60,25 @@ class OrderExecutor:
         except Exception as e:
             logger.warning(f"Markets 로드: {e}")
 
+        # 포지션 유무 먼저 확인 — 포지션 있으면 사용자 leverage 보존 (ETH V8 패턴)
         try:
-            await self.exchange.set_leverage(LEVERAGE, SYMBOL)
-            logger.info(f"레버리지 설정: {LEVERAGE}x")
-        except Exception as e:
-            logger.warning(f"레버리지: {e}")
+            pre_check = await self.exchange.fetch_positions([SYMBOL])
+            has_pos = any(abs(float(p.get('contracts', 0) or 0)) > 0 for p in pre_check)
+        except Exception:
+            has_pos = False
+
+        if has_pos:
+            # 포지션 있음 — 사용자가 설정한 레버리지를 봇이 인지 (set_leverage 강제 안 함)
+            await self.get_exchange_position()  # self.leverage 동적 갱신
+            logger.info(f"레버리지 인지 (포지션 보유 중, 사용자 설정 보존): {self.leverage}x")
+        else:
+            # 포지션 없음 — BOT 기본값 LEVERAGE로 설정
+            try:
+                await self.exchange.set_leverage(LEVERAGE, SYMBOL)
+                self.leverage = LEVERAGE
+                logger.info(f"레버리지 기본값 설정: {LEVERAGE}x (포지션 없음)")
+            except Exception as e:
+                logger.warning(f"레버리지: {e}")
 
         try:
             await self.exchange.set_margin_mode(MARGIN_MODE, SYMBOL)
@@ -122,16 +138,36 @@ class OrderExecutor:
                 sym = p.get('symbol', '')
                 if BINANCE_SYMBOL not in sym.replace('/', '').replace(':USDT', '').replace(':usdt', ''):
                     continue
+
                 contracts = abs(float(p.get('contracts', 0) or 0))
+                notional = abs(float(p.get('notional', 0) or 0))
+                margin_v = float(p.get('initialMargin', 0) or 0)
+
+                # ★ 사용자 레버리지 동적 추적 (ETH V8 패턴)
+                #   ccxt top-level/info가 None인 경우 많음 → notional/margin 비율로 추론
+                lev_raw = p.get('leverage') or p.get('info', {}).get('leverage')
+                if not lev_raw and notional > 0 and margin_v > 0:
+                    lev_raw = round(notional / margin_v)
+                if lev_raw:
+                    try:
+                        new_lev = max(1, int(float(lev_raw)))
+                        if new_lev != self.leverage:
+                            logger.info(f"레버리지 변경 감지: {self.leverage}x → {new_lev}x")
+                            self.leverage = new_lev
+                            self.leverage_warned = False  # 다음 sync에서 텔레그램 알림
+                    except (ValueError, TypeError):
+                        pass
+
                 if contracts <= 0: continue
                 self.exchange_position = {
                     'direction': 1 if p['side'] == 'long' else -1,
                     'entry_price': float(p.get('entryPrice', 0) or 0),
                     'size': contracts,
-                    'notional': abs(float(p.get('notional', 0) or 0)),
+                    'notional': notional,
                     'unrealized_pnl': float(p.get('unrealizedPnl', 0) or 0),
-                    'margin': float(p.get('initialMargin', 0) or 0),
+                    'margin': margin_v,           # 거래소 실제 initialMargin
                     'liquidation_price': float(p.get('liquidationPrice', 0) or 0),
+                    'leverage': self.leverage,    # 동적 추적된 레버리지
                 }
                 return self.exchange_position
             self.exchange_position = None

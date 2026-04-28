@@ -258,11 +258,13 @@ class SOLTradingBot:
             return
 
         # 봇 내부 상태와 비교
+        eff_lev = ex_pos.get('leverage') or self.executor.leverage or LEVERAGE
         if self.core.has_position and self.core.position.direction == ex_pos['direction']:
-            # 기존 상태 유지, 사이즈만 동기화
+            # 기존 상태 유지, 사이즈/margin은 거래소 실제값으로 동기화
             self.core.position.position_size = ex_pos['notional']
-            self.core.position.margin_used = ex_pos['notional'] / LEVERAGE
-            self.logger.info("기존 포지션 상태 복원")
+            # 거래소 initialMargin 우선, 없으면 notional/leverage 계산
+            self.core.position.margin_used = ex_pos.get('margin') or (ex_pos['notional'] / eff_lev)
+            self.logger.info(f"기존 포지션 상태 복원 (Leverage {eff_lev}x)")
             # SL이 거래소에 있는지 확인하고 없으면 다시 등록
             try:
                 sl_price = self.core.position.sl_price
@@ -285,11 +287,16 @@ class SOLTradingBot:
                 f"Notional ${ex_pos['notional']:,.0f} | Auto-SL ${sl_price:.3f} (3.8%) | "
                 f"Pyramiding DISABLED"
             )
+            # 사용자 실제 margin/leverage로 초기화 (ETH V8 패턴)
+            user_margin = ex_pos.get('margin') or (ex_pos['notional'] / eff_lev)
+            self.logger.info(f"수동 포지션 인지: {dir_str} @${entry_price:.3f} | "
+                             f"Notional ${ex_pos['notional']:,.0f} | Margin ${user_margin:,.0f} | "
+                             f"Leverage {eff_lev}x (사용자 설정)")
             self.core.position = PositionState(
                 direction=direction, entry_mode=int(EntryMode.V12),
                 entry_price=entry_price, entry_price_leg1=entry_price,
                 position_size=ex_pos['notional'],
-                margin_used=ex_pos['notional'] / LEVERAGE,
+                margin_used=user_margin,  # ★ 거래소 실제값 사용 (5x/10x 등 사용자 설정 반영)
                 sl_price=sl_price, tsl_active=False,
                 track_high=entry_price, track_low=entry_price,
                 entry_time=time.time(), entry_bar=self.data.get_latest_index(),
@@ -438,6 +445,16 @@ class SOLTradingBot:
                 self.logger.info(f"⏭ Skip ({self.core.skip_remaining} remaining)")
                 return
 
+            # ★ BOT 자동 진입은 항상 LEVERAGE 상수로 강제 (백테스트 무결성)
+            #   사용자가 다른 레버리지로 변경했어도 봇 진입 시 다시 LEVERAGE로
+            try:
+                from sol_executor_v1 import SYMBOL as EX_SYMBOL
+                await self.executor.exchange.set_leverage(LEVERAGE, EX_SYMBOL)
+                self.executor.leverage = LEVERAGE
+                self.executor.leverage_warned = False
+            except Exception as e:
+                self.logger.warning(f"BOT 진입 전 레버리지 {LEVERAGE}x 설정 실패: {e}")
+
             result = await self.executor.market_entry(
                 direction=sig.direction,
                 position_size_usd=sig.position_size_usd,
@@ -572,6 +589,18 @@ class SOLTradingBot:
         try:
             ex_pos = await self.executor.get_exchange_position()
             bot_has = self.core.has_position
+
+            # ★ 사용자 레버리지 변경 감지 → 1회 알림
+            eff_lev = self.executor.leverage or LEVERAGE
+            if eff_lev != LEVERAGE and not self.executor.leverage_warned:
+                msg = (f"ℹ️ 사용자 레버리지 {eff_lev}x 인지 (봇 기본 {LEVERAGE}x). "
+                       f"USER 포지션은 {eff_lev}x로, BOT 자동진입은 {LEVERAGE}x로 처리됩니다.")
+                self.logger.info(msg)
+                try:
+                    self.telegram.notify_error(msg)
+                except Exception:
+                    pass
+                self.executor.leverage_warned = True
 
             # 케이스 A: 봇 없는데 거래소에 있음 → 수동 진입 감지
             if ex_pos and not bot_has:

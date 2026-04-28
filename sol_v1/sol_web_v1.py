@@ -1178,7 +1178,9 @@ class WebDashboard:
                 else:
                     unrealized_pnl = (p.entry_price - price) / p.entry_price * p.position_size
             pnl_class = 'win' if unrealized_pnl >= 0 else 'lose'
-            from sol_executor_v1 import LEVERAGE as EX_LEVERAGE
+            from sol_executor_v1 import LEVERAGE as EX_LEVERAGE_DEFAULT
+            # ★ 거래소 동적 레버리지 우선 (사용자 5x/10x 진입 시 인지)
+            EX_LEVERAGE = ex.leverage if hasattr(ex, 'leverage') and ex.leverage else EX_LEVERAGE_DEFAULT
             entry_ts = float(p.entry_time) if p.entry_time else 0
             entry_time_str = datetime.fromtimestamp(entry_ts).strftime('%Y-%m-%d %H:%M:%S') if entry_ts > 0 else '-'
             # 보유 시간 (서버 초기 렌더, 클라이언트가 1초마다 재계산)
@@ -1739,7 +1741,9 @@ class WebDashboard:
             # 현재 시간 (서버 기준 KST 등 시계 동기화용)
             now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             # 필터 지표 (대시보드 라이브 갱신용)
-            from sol_executor_v1 import LEVERAGE as EX_LEVERAGE
+            from sol_executor_v1 import LEVERAGE as EX_LEVERAGE_DEFAULT
+            # ★ 거래소 동적 레버리지 우선 사용 (사용자 변경 추적)
+            EX_LEVERAGE = ex.leverage if hasattr(ex, 'leverage') and ex.leverage else EX_LEVERAGE_DEFAULT
             ind_block = {}
             try:
                 bar_idx = data.get_latest_index() if data else 0
