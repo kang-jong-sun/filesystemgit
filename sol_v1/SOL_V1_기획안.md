@@ -1,11 +1,11 @@
 # SOL V1 실전 자동매매 봇 — 완전 기획안
 
-> **문서 버전**: v1.3 (2026-04-28, ETH V8 패턴 통합 반영)
+> **문서 버전**: v1.4 (2026-04-28, REV-GUARD 추가)
 > **봇 파일 위치**: `D:\filesystem\futures\sol_v1\`
 > **AWS 배포**: `ubuntu@18.183.150.105:/home/ubuntu/sol_v1/`
 > **저장소**: `https://github.com/kang-jong-sun/filesystemgit.git`
 > **레버리지**: **5x** (테스트 단계적 상향 — 2x → 5x, 2026-04-28)
-> **최신 커밋**: `97c381f` (수동 포지션 DB 저장 + 메모리 폴백)
+> **최신 커밋**: `861ad79` (REV-GUARD 추세-역방향 가드 추가)
 
 ---
 
@@ -76,6 +76,10 @@ SOL V1 = V12 (75%) ⊕ Mass Index (25%)
    - POSITION_SYNC 60→10초 (즉각 감지)
    - 텔레그램 메시지 큐 + 한글 명령어 (`/sol 상태/포지션/잔액/최근거래/봇정지/봇시작/청산`)
    - REV 진단 로그 (cross 감지/발동 추적 가능)
+7. **REV-GUARD** (2026-04-28, 4/27 사고 대응):
+   - cross 봉 놓침 방지 — 진입 후 4봉(1시간) + 추세 역방향이면 강제 EXIT
+   - V12 REV의 한계 (`dn`이 cross 봉에서만 True) 보완
+   - 사용자 수동 진입 + 추세 반대 방향 케이스에서 자동 청산 보장
 
 ---
 
@@ -224,7 +228,14 @@ if cross_detected_at_bar_X:
 | **SL** (Stop Loss) | 진입가 -3.8% | 3.8% | 4.0% |
 | **TA** (Take Activate) | 진입가 +5.6% | 5.6% | 5.6% |
 | **TSL** (Trailing Stop) | 피크 -10.0% | 10.0% | 11.0% |
-| **REV** | EMA9 역방향 크로스 | 활성 | 활성 |
+| **REV** | EMA9 역방향 크로스 (cross 봉) | 활성 | 활성 |
+| **REV-GUARD** ★ | 진입 후 4봉(1h) + 추세-역방향 (`fm < sm` for LONG / `fm > sm` for SHORT) | 활성 | 활성 |
+
+**REV-GUARD 추가 배경 (2026-04-28)**:
+- 기본 REV 조건 `dn = (fm < sm AND pfm >= psm)`은 **cross 발생 그 1봉에서만 True**
+- 데이터 동기화 0.5초 차이로 그 봉을 놓치면 영영 발동 못 함
+- 2026-04-27 사고 (사용자 LONG 보유 + cross 봉 놓침) 재발 방지용
+- `REV_GUARD_BARS = 4` (15m × 4 = 1시간), 진입 후 1시간 이내는 기존 cross 감지에만 의존 → 가짜 청산 방지
 
 ### 3.6 TA/TSL 동작
 
@@ -1174,6 +1185,45 @@ sudo systemctl status sol-bot.service
 | REV cross 진단 로그 부재 | ✅ **해결 (2026-04-28)** | REV-CHECK / REV TRIGGERED / REV-SKIP 로그 추가 (42b5753) |
 | /sol 상태/포지션 ROI=-100% 잘못 표시 | ✅ **해결 (2026-04-28)** | price 폴백(df_sol close) 추가 (d1feb99) |
 | 3시간 텔레그램 리포트에 포지션 정보 누락 | ✅ **해결 (2026-04-28)** | notify_status에 Position 섹션 추가 (d1feb99) |
+| **V12 REV가 cross 봉을 놓치면 영영 발동 못 함** | ✅ **해결 (2026-04-28)** | **REV-GUARD 추가: 진입 후 4봉 + 추세 역방향 강제 EXIT (861ad79)** |
+
+### 19.3.2 REV-GUARD 추가 상세 (2026-04-28)
+
+**문제**: 4/27 15:45에 EMA9 cross_dn이 발생했으나 봇이 사용자 LONG 포지션을 REV로 청산 못함.
+
+**원인 분석**:
+- REV 트리거 조건: `dn = (fm < sm AND pfm >= psm)` — cross 발생 그 1봉에서만 True
+- 데이터 동기화 0.5초만 어긋나도 그 봉을 놓치면 다음 봉부터 `pfm < psm` → `dn = False` → 영영 발동 못 함
+- signals_*.log에 4/27 cross 기록 0건 (진단 로그 부재로 정확한 원인 미파악)
+
+**수정** (sol_core_v1.py _check_exit REV 블록):
+```python
+USE_REV_GUARD = True
+REV_GUARD_BARS = 4   # 15m × 4 = 1시간
+
+# 기존 cross 감지 후 추가
+if USE_REV_GUARD:
+    bars_held = bar_idx - pos.entry_bar
+    if bars_held >= REV_GUARD_BARS:
+        counter_trend = ((pos.direction == 1 and fm < sm) or
+                         (pos.direction == -1 and fm > sm))
+        if counter_trend:
+            signal_log.info(f"V12 REV-GUARD ... → EXIT (cross 봉 놓침 가드)")
+            return Signal(action='EXIT', exit_type='REV',
+                          reason=f"REV-GUARD ({bars_held}봉 후 추세 역전)")
+```
+
+**효과**:
+- 4/27 시나리오 시뮬레이션: 사용자 LONG @4/25 06:13 + 4/27 15:45 cross_dn (놓침)
+  - 기존: REV 미발동 → 4/28 사용자가 직접 청산할 때까지 손실 누적
+  - **수정 후**: 16:45 (4봉 = 1시간 후) 추세 역방향 감지 → 자동 EXIT
+- 진입 직후 1시간 이내는 기존 cross 감지에만 의존 (가짜 청산 방지)
+- 백테스트 V12 결과에 영향 미미 (백테스트는 cross 정확히 처리, GUARD 거의 발동 안 함)
+
+**파라미터 튜닝 가이드**:
+- `REV_GUARD_BARS = 4` (1시간) — 사용자 수동 진입 보호 + 정상 신호 대기 시간 균형
+- 너무 작게(예: 1봉) → 진입 직후 가짜 청산 위험
+- 너무 크게(예: 24봉=6시간) → 추세 역방향에 너무 오래 노출됨
 
 ### 19.3.1 차트 깨짐 해결 상세 (2026-04-24, 7차 수정 여정)
 
@@ -1411,8 +1461,8 @@ bedcfee  SOL V1 실전 봇 최초 커밋 (4731줄)
 ---
 
 **문서 작성**: Claude Code
-**최종 수정**: 2026-04-28 KST (ETH V8 패턴 통합 + 레버리지 5x + 텔레그램 한글 명령어)
-**상태**: 운영 중 (sol-bot.service active, Wilder + 서버 df_sol + ETH V8 패턴 + Lev 5x 적용)
+**최종 수정**: 2026-04-28 KST (REV-GUARD 추가 — cross 봉 놓침 방지)
+**상태**: 운영 중 (sol-bot.service active, Wilder + 서버 df_sol + ETH V8 패턴 + Lev 5x + REV-GUARD 적용)
 
 ## 📝 문서 개정 이력
 
@@ -1421,4 +1471,5 @@ bedcfee  SOL V1 실전 봇 최초 커밋 (4731줄)
 | v1.0 | 2026-04-23 | 초기 기획안 작성 (20 섹션) |
 | v1.1 | 2026-04-23 | Wilder 일치 수정 반영 |
 | v1.2 | 2026-04-24 | 차트 깨짐 7차 수정 이력 추가 (19.3.1 신설) + Watch 영속화 + 에러 로그 정리 |
-| **v1.3** | **2026-04-28** | **ETH V8 패턴 통합 (대규모)**:<br>• 레버리지 2x → **5x** + 사용자 동적 추적<br>• `_cancel_all_sl_orders` + `STOP_MARKET` fallback<br>• `get_last_exit_price` 외부 청산 실체결가<br>• POSITION_SYNC 60→10초<br>• `_sync_position` 3-케이스 (A/B/C)<br>• 텔레그램 메시지 큐 + 한글 명령어 + 묵은 메시지 스킵<br>• REV 진단 로그 (REV-CHECK/TRIGGERED/SKIP)<br>• 수동 포지션 DB save_entry 누락 수정<br>• 대시보드 시계 1초 / 데이터 10초 라이브<br>• 포지션 진입시각/보유시간/Leverage 표시<br>• 5개 페이지 시계 동기화<br>• 3시간 리포트 포지션 섹션 추가 |
+| v1.3 | 2026-04-28 | ETH V8 패턴 통합 (대규모):<br>• 레버리지 2x → **5x** + 사용자 동적 추적<br>• `_cancel_all_sl_orders` + `STOP_MARKET` fallback<br>• `get_last_exit_price` 외부 청산 실체결가<br>• POSITION_SYNC 60→10초<br>• `_sync_position` 3-케이스 (A/B/C)<br>• 텔레그램 메시지 큐 + 한글 명령어 + 묵은 메시지 스킵<br>• REV 진단 로그 (REV-CHECK/TRIGGERED/SKIP)<br>• 수동 포지션 DB save_entry 누락 수정<br>• 대시보드 시계 1초 / 데이터 10초 라이브<br>• 포지션 진입시각/보유시간/Leverage 표시<br>• 5개 페이지 시계 동기화<br>• 3시간 리포트 포지션 섹션 추가 |
+| **v1.4** | **2026-04-28** | **REV-GUARD 추가 (4/27 사고 대응)**:<br>• `USE_REV_GUARD = True`, `REV_GUARD_BARS = 4` (1시간)<br>• 진입 후 4봉 경과 + 추세 역방향이면 강제 EXIT<br>• V12 REV 한계(cross 봉 놓침) 보완<br>• §3.5 청산 규칙 / §1.4 주요 혁신 / §19.3.2 신설 |
