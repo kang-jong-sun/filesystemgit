@@ -827,27 +827,83 @@ loadChart(17280);
 // ★ 서버 데이터 그대로 반영 (추정 로직 완전 제거)
 // 서버의 df_sol 마지막 봉 OHLC를 5초마다 가져와서 차트에 직접 적용
 // → 봉 경계 계산/OHLC 추정 등 모든 프론트 추정 로직 제거
+//
+// ★★ 2026-04-28 추가: candleSeries lastTime 추적해서 누락 봉 자동 catch-up
+//    Lightweight Charts의 update(time)는 lastTime보다 작은 time을 무시하므로,
+//    페이지를 오래 켜둔 채 새 봉이 여러 개 마감되면 일부가 누락될 수 있음.
+//    → lastTime보다 큰 봉은 추가, 같으면 update, 작으면 skip (명시적)
+let lastChartTime = 0;
 async function updateCurrentBar() {
   try {
-    const resp = await fetch('/api/status');
+    const resp = await fetch('/api/status', { cache: 'no-store' });
     if (!resp.ok) return;
     const d = await resp.json();
 
-    // 현재가 표시 갱신
     if (d.price) {
       document.getElementById('current-price').textContent = '$' + d.price.toFixed(3);
     }
 
-    // ★ 최근 5봉 모두 update (진행 중 봉 + 직전 4개 마감봉)
-    // 핵심: 직전 마감 봉의 최종 OHLC를 계속 갱신하여 "좁은 봉 동결" 방지
     if (d.last_bars && Array.isArray(d.last_bars) && candleSeries) {
-      for (const bar of d.last_bars) {
-        candleSeries.update(bar);
+      // 시간 오름차순 정렬 보장 후 update
+      const bars = [...d.last_bars].sort((a, b) => a.time - b.time);
+      let updated = 0, added = 0, skipped = 0;
+      for (const bar of bars) {
+        if (bar.time < lastChartTime) {
+          skipped++;
+          continue;
+        }
+        try {
+          candleSeries.update(bar);
+          if (bar.time > lastChartTime) {
+            lastChartTime = bar.time;
+            added++;
+          } else {
+            updated++;
+          }
+        } catch (e) {
+          skipped++;
+        }
+      }
+      // 누락된 봉이 너무 많으면 (lastChartTime이 오래된 경우) 전체 재로드
+      // — 페이지 오래 켜둔 사용자 자동 복구
+      const nowKstSec = Math.floor(Date.now() / 1000) + 9 * 3600;
+      const expectedLast = nowKstSec - (nowKstSec % 900);
+      if (expectedLast - lastChartTime > 900 * 6) {  // 6봉(1.5h) 이상 차이 시 재로드
+        console.log('차트 6봉 이상 뒤처짐 → 전체 재로드');
+        loadChart(17280);
+        lastChartTime = 0;
       }
     }
   } catch(e) {}
 }
+
+// 초기 lastChartTime 설정 (loadChart 직후)
+setTimeout(() => {
+  if (currentBar && currentBar.time) lastChartTime = currentBar.time;
+}, 2000);
+
 setInterval(updateCurrentBar, 5000);
+
+// ★ 5분마다 최근 마감 봉 백필 (누락 봉 자동 보정)
+async function backfillRecentBars() {
+  try {
+    const resp = await fetch('/api/candles?limit=20', { cache: 'no-store' });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.candles && data.candles.length > 0 && candleSeries) {
+      // 시간 오름차순으로 정렬되어 있다고 가정
+      for (const bar of data.candles) {
+        if (bar.time >= lastChartTime - 900) {  // 안전 여유: 1봉
+          try {
+            candleSeries.update(bar);
+            if (bar.time > lastChartTime) lastChartTime = bar.time;
+          } catch (e) {}
+        }
+      }
+    }
+  } catch(e) {}
+}
+setInterval(backfillRecentBars, 300000);  // 5분
 
 function updateClock(){const d=new Date(),p=n=>String(n).padStart(2,'0');const s=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());const e=document.getElementById('live-hdr-time');if(e)e.textContent=s;}
 updateClock();setInterval(updateClock,1000);
