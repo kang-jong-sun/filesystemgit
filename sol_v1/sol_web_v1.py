@@ -50,7 +50,7 @@ button:hover{background:#16a34a}
 
 HTML_DASHBOARD = """<!DOCTYPE html>
 <html lang="ko"><head><meta charset="UTF-8"><title>SOL V1 Dashboard</title>
-<meta http-equiv="refresh" content="60">
+<meta http-equiv="refresh" content="30">
 <style>
 *{box-sizing:border-box}
 body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e0e0;margin:0;padding:20px}
@@ -168,29 +168,29 @@ tr:hover{background:rgba(255,255,255,0.02)}
   <h3>📡 현재 지표 + V12/Mass 필터 상태 (15m)</h3>
 
   <div class="cross-indicator">
-    <b>추세 감지:</b> EMA9 <span style="color:#facc15">$%%EMA9%%</span> %%CROSS_SIGN%% SMA400 <span style="color:#f97316">$%%SMA400%%</span>
-    → %%CROSS_DIR%%
+    <b>추세 감지:</b> EMA9 <span style="color:#facc15">$<span id="live-ema9">%%EMA9%%</span></span> <span id="live-cross-sign">%%CROSS_SIGN%%</span> SMA400 <span style="color:#f97316">$<span id="live-sma400">%%SMA400%%</span></span>
+    → <span id="live-cross-dir">%%CROSS_DIR%%</span>
   </div>
 
   <div class="section-title">V12 5중 필터</div>
   <div class="filter-grid">
-    <div class="filter-cell %%F_ADX_CLASS%%">
+    <div class="filter-cell %%F_ADX_CLASS%%" id="live-adx-cell">
       <div class="filter-label">ADX</div>
-      <div class="filter-value">%%ADX%%</div>
+      <div class="filter-value" id="live-adx">%%ADX%%</div>
       <div class="filter-cond">필요: ≥ 22 (추세 강도)</div>
-      <div class="filter-status status-%%F_ADX_CLASS%%">%%F_ADX_TEXT%%</div>
+      <div class="filter-status status-%%F_ADX_CLASS%%" id="live-adx-status">%%F_ADX_TEXT%%</div>
     </div>
-    <div class="filter-cell %%F_RSI_CLASS%%">
+    <div class="filter-cell %%F_RSI_CLASS%%" id="live-rsi-cell">
       <div class="filter-label">RSI</div>
-      <div class="filter-value">%%RSI%%</div>
+      <div class="filter-value" id="live-rsi">%%RSI%%</div>
       <div class="filter-cond">필요: 30 ~ 65 (중립)</div>
-      <div class="filter-status status-%%F_RSI_CLASS%%">%%F_RSI_TEXT%%</div>
+      <div class="filter-status status-%%F_RSI_CLASS%%" id="live-rsi-status">%%F_RSI_TEXT%%</div>
     </div>
-    <div class="filter-cell %%F_LR_CLASS%%">
+    <div class="filter-cell %%F_LR_CLASS%%" id="live-lr-cell">
       <div class="filter-label">LR Slope</div>
-      <div class="filter-value">%%LR%%</div>
+      <div class="filter-value" id="live-lr">%%LR%%</div>
       <div class="filter-cond">필요: -0.5 ~ +0.5</div>
-      <div class="filter-status status-%%F_LR_CLASS%%">%%F_LR_TEXT%%</div>
+      <div class="filter-status status-%%F_LR_CLASS%%" id="live-lr-status">%%F_LR_TEXT%%</div>
     </div>
     <div class="filter-cell %%F_SAME_CLASS%%">
       <div class="filter-label">Skip Same</div>
@@ -208,17 +208,17 @@ tr:hover{background:rgba(255,255,255,0.02)}
 
   <div class="section-title">Mass Index & ATR Defense</div>
   <div class="filter-grid">
-    <div class="filter-cell %%F_MASS_CLASS%%">
+    <div class="filter-cell %%F_MASS_CLASS%%" id="live-mass-cell">
       <div class="filter-label">Mass Index</div>
-      <div class="filter-value">%%MASS%%</div>
+      <div class="filter-value" id="live-mass">%%MASS%%</div>
       <div class="filter-cond">Bulge: ≥ 27 → < 26.5 (반전)</div>
-      <div class="filter-status status-%%F_MASS_CLASS%%">%%F_MASS_TEXT%%</div>
+      <div class="filter-status status-%%F_MASS_CLASS%%" id="live-mass-status">%%F_MASS_TEXT%%</div>
     </div>
-    <div class="filter-cell %%F_ATR_CLASS%%">
+    <div class="filter-cell %%F_ATR_CLASS%%" id="live-atr-cell">
       <div class="filter-label">ATR14 / ATR50</div>
-      <div class="filter-value">%%ATR_RATIO%%</div>
+      <div class="filter-value" id="live-atr-ratio">%%ATR_RATIO%%</div>
       <div class="filter-cond">&lt; 1.5x (정상) / ≥ 1.5x (margin flat)</div>
-      <div class="filter-status status-%%F_ATR_CLASS%%">%%F_ATR_TEXT%%</div>
+      <div class="filter-status status-%%F_ATR_CLASS%%" id="live-atr-status">%%F_ATR_TEXT%%</div>
     </div>
   </div>
 
@@ -268,7 +268,19 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 1000);
 
-// ─── 라이브 데이터: 1초마다 /api/status 호출 → DOM 갱신 ───
+// ─── 라이브 데이터: 10초마다 /api/status 호출 → DOM 갱신 ───
+//   가격/포지션/필터 값 텍스트만 갱신. pass/fail 색상은 30초 페이지 새로고침으로 정확성 보장.
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+function setClass(id, addClass, removeList) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  (removeList || []).forEach(c => el.classList.remove(c));
+  if (addClass) el.classList.add(addClass);
+}
+
 async function updateLiveData() {
   try {
     const r = await fetch('/api/status', { cache: 'no-store' });
@@ -276,31 +288,53 @@ async function updateLiveData() {
     const d = await r.json();
 
     // SOL 가격
-    const priceEl = document.getElementById('live-sol-price');
-    if (priceEl && typeof d.price === 'number' && d.price > 0) {
-      priceEl.textContent = d.price.toFixed(3);
+    if (typeof d.price === 'number' && d.price > 0) {
+      setText('live-sol-price', d.price.toFixed(3));
     }
 
-    // 포지션이 있으면 현재가/PnL/ROI 갱신
+    // 포지션 라이브 (현재가/PnL/ROI)
     if (d.has_position && d.position) {
       const p = d.position;
-      const curEl = document.getElementById('live-pos-current');
-      if (curEl && typeof d.price === 'number' && d.price > 0) {
-        curEl.textContent = d.price.toFixed(3);
+      if (typeof d.price === 'number' && d.price > 0) {
+        setText('live-pos-current', d.price.toFixed(3));
       }
-      const pnlEl = document.getElementById('live-pos-pnl');
-      if (pnlEl && typeof p.pnl === 'number') {
+      if (typeof p.pnl === 'number') {
         const sign = p.pnl >= 0 ? '+' : '';
-        pnlEl.textContent = '$' + sign + p.pnl.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        pnlEl.classList.remove('win','lose');
-        pnlEl.classList.add(p.pnl >= 0 ? 'win' : 'lose');
+        setText('live-pos-pnl', '$' + sign + p.pnl.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}));
+        setClass('live-pos-pnl', p.pnl >= 0 ? 'win' : 'lose', ['win','lose']);
       }
-      const roiEl = document.getElementById('live-pos-roi');
-      if (roiEl && typeof p.roi === 'number') {
+      if (typeof p.roi === 'number') {
         const sign = p.roi >= 0 ? '+' : '';
-        roiEl.textContent = sign + p.roi.toFixed(2) + '%';
-        roiEl.classList.remove('win','lose');
-        roiEl.classList.add(p.roi >= 0 ? 'win' : 'lose');
+        setText('live-pos-roi', sign + p.roi.toFixed(2) + '%');
+        setClass('live-pos-roi', p.roi >= 0 ? 'win' : 'lose', ['win','lose']);
+      }
+    }
+
+    // 필터 지표 라이브 (텍스트만)
+    const ind = d.indicators || {};
+    if (typeof ind.ema9 === 'number' && ind.ema9 > 0) setText('live-ema9', ind.ema9.toFixed(3));
+    if (typeof ind.sma400 === 'number' && ind.sma400 > 0) setText('live-sma400', ind.sma400.toFixed(3));
+    if (typeof ind.adx === 'number') setText('live-adx', ind.adx.toFixed(1));
+    if (typeof ind.rsi === 'number') setText('live-rsi', ind.rsi.toFixed(1));
+    if (typeof ind.lr_slope === 'number') setText('live-lr', ind.lr_slope.toFixed(4));
+    if (typeof ind.mass === 'number') setText('live-mass', ind.mass.toFixed(2));
+    if (typeof ind.atr_ratio === 'number') setText('live-atr-ratio', ind.atr_ratio.toFixed(2) + 'x');
+
+    // 추세 cross 방향 동기화 (값과 색상)
+    if (typeof ind.ema9 === 'number' && typeof ind.sma400 === 'number' && ind.ema9 > 0 && ind.sma400 > 0) {
+      const signEl = document.getElementById('live-cross-sign');
+      const dirEl = document.getElementById('live-cross-dir');
+      if (signEl && dirEl) {
+        if (ind.ema9 > ind.sma400) {
+          signEl.innerHTML = '&gt;';
+          dirEl.innerHTML = '<span class="win">📈 LONG 방향 (EMA9 위)</span>';
+        } else if (ind.ema9 < ind.sma400) {
+          signEl.innerHTML = '&lt;';
+          dirEl.innerHTML = '<span class="lose">📉 SHORT 방향 (EMA9 아래)</span>';
+        } else {
+          signEl.innerHTML = '=';
+          dirEl.innerHTML = '<span class="warn">— 중립</span>';
+        }
       }
     }
   } catch (e) {
@@ -308,7 +342,7 @@ async function updateLiveData() {
   }
 }
 updateLiveData();
-setInterval(updateLiveData, 1000);
+setInterval(updateLiveData, 10000);
 </script>
 </body></html>"""
 
@@ -1103,13 +1137,15 @@ class WebDashboard:
                 else:
                     unrealized_pnl = (p.entry_price - price) / p.entry_price * p.position_size
             pnl_class = 'win' if unrealized_pnl >= 0 else 'lose'
+            from sol_executor_v1 import LEVERAGE as EX_LEVERAGE
             position_block = f"""
 <div class="pos {dir_class}">
   <h3 style="margin:0 0 10px;color:#eab308">📍 현재 포지션 [{mode_str}]</h3>
-  <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:15px">
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:15px">
     <div><div class="sub">방향</div><div class="v">{dir_str}</div></div>
     <div><div class="sub">진입가 (VWAP)</div><div class="v">${p.entry_price:.3f}</div></div>
     <div><div class="sub">현재가</div><div class="v">$<span id="live-pos-current">{price:.3f}</span></div></div>
+    <div><div class="sub">Leverage</div><div class="v" style="color:#facc15">{EX_LEVERAGE}x</div></div>
     <div><div class="sub">Size</div><div class="v">${p.position_size:,.0f}</div></div>
     <div><div class="sub">Margin</div><div class="v">${p.margin_used:,.0f}</div></div>
     <div><div class="sub">SL</div><div class="v">${p.sl_price:.3f}</div></div>
@@ -1642,9 +1678,35 @@ class WebDashboard:
                 }
             # 현재 시간 (서버 기준 KST 등 시계 동기화용)
             now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            # 필터 지표 (대시보드 라이브 갱신용)
+            from sol_executor_v1 import LEVERAGE as EX_LEVERAGE
+            ind_block = {}
+            try:
+                bar_idx = data.get_latest_index() if data else 0
+                ind = data.get_indicators_at(bar_idx) if data else {}
+                ema9 = ind.get('fast_ma', 0) or 0
+                sma400 = ind.get('slow_ma', 0) or 0
+                atr14 = ind.get('atr14', 0) or 0
+                atr50 = ind.get('atr50', 0.01) or 0.01
+                ind_block = {
+                    'ema9': float(ema9) if ema9 == ema9 else 0,  # nan check
+                    'sma400': float(sma400) if sma400 == sma400 else 0,
+                    'adx': float(ind.get('adx', 0) or 0),
+                    'rsi': float(ind.get('rsi', 0) or 0),
+                    'lr_slope': float(ind.get('lr_slope', 0) or 0),
+                    'mass': float(ind.get('mass', 0) or 0),
+                    'atr14': float(atr14),
+                    'atr50': float(atr50),
+                    'atr_ratio': float(atr14 / atr50) if atr50 > 0 else 0,
+                    'last_exit_dir': core.last_exit_dir,
+                    'mass_bulge_active': core.mass_bulge_active,
+                }
+            except Exception:
+                pass
             return JSONResponse({
                 'price': price,
                 'now': now_str,
+                'leverage': EX_LEVERAGE,
                 'last_bars': last_bars,
                 'balance': ex.balance, 'available': ex.available_balance,
                 'peak': core.peak_capital, 'mdd': core.max_drawdown,
@@ -1653,6 +1715,7 @@ class WebDashboard:
                 'consec_losses': core.consec_losses, 'skip_remaining': core.skip_remaining,
                 'has_position': core.has_position,
                 'position': pos_info,
+                'indicators': ind_block,
             })
 
         @self.app.get('/api/candles')
