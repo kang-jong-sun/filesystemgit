@@ -1,10 +1,11 @@
 # SOL V1 실전 자동매매 봇 — 완전 기획안
 
-> **문서 버전**: v1.1 (2026-04-23, Wilder 일치 반영)
+> **문서 버전**: v1.3 (2026-04-28, ETH V8 패턴 통합 반영)
 > **봇 파일 위치**: `D:\filesystem\futures\sol_v1\`
 > **AWS 배포**: `ubuntu@18.183.150.105:/home/ubuntu/sol_v1/`
 > **저장소**: `https://github.com/kang-jong-sun/filesystemgit.git`
-> **최신 커밋**: `d12889d` (Wilder RSI/ADX 교체)
+> **레버리지**: **5x** (테스트 단계적 상향 — 2x → 5x, 2026-04-28)
+> **최신 커밋**: `97c381f` (수동 포지션 DB 저장 + 메모리 폴백)
 
 ---
 
@@ -47,7 +48,8 @@
 | 심볼 | SOL/USDT:USDT (Perpetual) |
 | 기본 TF | 15min (primary) |
 | 보조 TF | 1h (BTC regime) |
-| 레버리지 | 2x (테스트 모드) |
+| **레버리지** | **5x** (테스트 단계적 상향: 2x → 5x @ 2026-04-28) |
+| **사용자 레버리지 추적** | **동적 인지** (사용자가 거래소에서 다른 레버리지로 진입 시 자동 감지 + 텔레그램 알림) |
 | 포지션 모드 | One-Way, Isolated Margin |
 | 초기 자본 | $5,000 (백테스트 기준) |
 | 복리 비율 | 12.5% of balance / 거래 |
@@ -67,6 +69,13 @@ SOL V1 = V12 (75%) ⊕ Mass Index (25%)
 3. **Mutex**: V12와 Mass가 동시 포지션 보유 금지 → 상관성 관리
 4. **Skip2@4loss**: 연속 4패 시 다음 2거래 스킵 → 드로다운 방지
 5. **Compound 12.5%**: 매 거래 잔액의 12.5% → 동적 사이징
+6. **ETH V8 패턴 통합** (2026-04-28):
+   - SL orphan 청소 (`_cancel_all_sl_orders` + `STOP_MARKET` fallback)
+   - 사용자 레버리지 동적 추적 (5x/10x 진입 시 자동 인지)
+   - 수동 포지션 3-케이스 처리 (진입/청산/방향전환)
+   - POSITION_SYNC 60→10초 (즉각 감지)
+   - 텔레그램 메시지 큐 + 한글 명령어 (`/sol 상태/포지션/잔액/최근거래/봇정지/봇시작/청산`)
+   - REV 진단 로그 (cross 감지/발동 추적 가능)
 
 ---
 
@@ -451,9 +460,23 @@ MAX_CAPITAL = 1_000_000  # $1M
 
 ### 7.6 레버리지 & 마진
 
-- **레버리지**: 2x (테스트 모드. 원래 전략 10x)
+- **레버리지**: **5x** (테스트 단계적 상향: 2x → 5x @ 2026-04-28, 원래 전략 10x)
 - **마진 모드**: Isolated (격리) → 한 포지션 손실이 다른 포지션에 영향 없음
 - **포지션 모드**: One-Way (단방향)
+
+#### 사용자 레버리지 동적 추적 (ETH V8 패턴, 2026-04-28 추가)
+
+봇 자동 진입과 사용자 수동 진입의 레버리지를 분리 관리:
+
+| 시나리오 | 봇 동작 |
+|---------|--------|
+| **봇 자동 진입** | 항상 `LEVERAGE = 5x` 강제 (`_handle_entry`에서 `set_leverage` 호출) |
+| **사용자 거래소에서 다른 레버리지로 진입** | `get_exchange_position`이 `p.get('leverage')` 또는 `notional/margin` 비율로 동적 추출 → `self.leverage` 갱신 |
+| **사용자 레버리지 변경 감지** | `_sync_position`에서 1회 텔레그램 알림: `"ℹ️ 사용자 레버리지 5x 인지 (봇 기본 5x)"` |
+| **봇 시작 시 포지션 보유 중** | `set_leverage` 강제 호출 안 함 → 사용자 설정 보존 |
+| **봇 시작 시 포지션 없음** | BOT 기본값 `LEVERAGE` 강제 설정 |
+
+**margin 계산**: 거래소 실제 `initialMargin` 우선 사용 (`notional / LEVERAGE` 가정 폐기) → 사용자가 5x로 진입해도 정확한 margin 동기화.
 
 ---
 
@@ -577,11 +600,18 @@ SL/TSL도 새 epx 기준으로 재설정.
 
 ### 11.2 실시간 업데이트
 
-**10초마다 main loop tick**:
-1. `fetch_ohlcv(since=last_candle_time+1)` → 신규 봉 추가
-2. 지표 재계산 (마지막 N봉만 incremental)
-3. WebSocket price 반영 (마지막 봉 close 갱신)
-4. 신호 체크 (15m 봉 마감 시)
+**메인 루프 tick 주기**:
+
+| 작업 | 주기 | 환경변수 |
+|------|------|---------|
+| LOOP_INTERVAL | 10초 | 메인 루프 sleep |
+| CANDLE_CHECK | 30초 | 5m 봉 신규 fetch + 지표 재계산 |
+| BALANCE_CHECK | 300초 (5분) | 잔액 조회 |
+| **POSITION_SYNC** | **10초** ★ | **거래소 포지션 ↔ 봇 state 동기화 (이전 60초 → 10초 단축, 2026-04-28)** |
+| STATUS_REPORT | 10800초 (3시간) | 텔레그램 상태 리포트 |
+| STATE_SAVE_INTERVAL | 60초 | `state/sol_state.json` 저장 |
+| HEARTBEAT_INTERVAL | 300초 (5분) | `heartbeat_*.log` 기록 |
+| 실시간 SL/TSL 체크 | 매 tick | `check_realtime_exit` 호출 |
 
 **5분마다 CSV 저장**:
 - 메모리 → `cache/sol_5m_YYYY.csv` 덮어쓰기
@@ -610,14 +640,22 @@ wss://fstream.binance.com/ws
 
 ## 12. 실행 엔진 (Executor)
 
-### 12.1 초기화 순서
+### 12.1 초기화 순서 (ETH V8 패턴, 2026-04-28 강화)
 
 ```python
 1. exchange = ccxt.binanceusdm({'apiKey', 'secret'})
-2. set_margin_mode('isolated')
-3. set_leverage(2)
-4. set_position_mode('one-way')
-5. fetch_balance() → 현재 잔액 확인
+2. load_markets()
+3. fetch_positions([SYMBOL]) → 포지션 유무 사전 확인
+4-A. 포지션 있음:
+       get_exchange_position() → self.leverage 동적 갱신
+       (set_leverage 강제 호출 안 함 → 사용자 설정 보존)
+4-B. 포지션 없음:
+       set_leverage(LEVERAGE=5)
+       self.leverage = LEVERAGE
+5. set_margin_mode('isolated') (-4067은 INFO로 강등)
+6. fetch_position_mode('one-way')
+7. update_balance() → 잔액
+8. _init_db() → SQLite 초기화
 ```
 
 ### 12.2 진입 실행
@@ -666,6 +704,51 @@ TA 도달 시 50% 청산 + 나머지 50% TSL로 추적.
 - TSL: 가격 새 피크 시 TSL 갱신
 - REV: EMA 역크로스 시 청산
 
+### 12.6 SL Orphan 청소 (ETH V8 패턴, 2026-04-28 추가)
+
+**문제**: 단일 `sl_order_id` 추적은 거래소 재시작/네트워크 끊김 시 orphan SL 누적 가능.
+
+**해결**: `_cancel_all_sl_orders()` — `params={'stop': True}`로 모든 conditional stop 주문 일괄 청소.
+
+```python
+async def _cancel_all_sl_orders(self):
+    orders = await self.exchange.fetch_open_orders(SYMBOL, params={'stop': True})
+    for o in orders:
+        await self.exchange.cancel_order(o['id'], SYMBOL, params={'stop': True})
+```
+
+**호출 시점**: SL 등록 직전, 외부 청산 감지, 방향 전환, 사용자 청산 모두.
+
+### 12.7 STOP_MARKET Fallback (ETH V8 패턴, 2026-04-28 추가)
+
+`_set_stop_loss`에 3-tier fallback:
+```python
+methods = [
+    ('STOP_MARKET',         self.exchange.create_order(SYMBOL, 'STOP_MARKET', side, qty, None, ccxt_params)),
+    ('create_stop_loss_order', ...),  # ccxt unified
+    ('create_trigger_order',   ...),  # ccxt unified
+]
+```
+
+`STOP_MARKET`이 가장 안정적이라 첫 시도. 실패 시 ccxt unified API로 fallback.
+
+### 12.8 외부 청산 실체결가 조회 (2026-04-28 추가)
+
+거래소에서 SL이 자동 발동하거나 사용자가 수동 청산 시:
+- `get_last_exit_price()` → `fetch_my_trades(SYMBOL, limit=5)`의 마지막 거래 가격
+- 메모리 `current_price`보다 정확한 실제 체결가 사용
+- DB에 정확한 PnL 저장
+
+### 12.9 사용자 수동 포지션 3-케이스 동기화 (`_sync_position`, 2026-04-28 강화)
+
+10초마다 거래소 vs 봇 state 비교:
+
+| 케이스 | 조건 | 처리 |
+|--------|------|------|
+| **A** | 거래소 ✓ / 봇 ✗ | 수동 진입 감지 → `_check_manual_position` 호출 → V12로 트래킹 + SL 등록 + DB save_entry + 텔레그램 알림 |
+| **B** | 거래소 ✗ / 봇 ✓ | 외부 청산 감지 → orphan SL 청소 + `get_last_exit_price` + `apply_exit('EXT')` + DB save_trade('USER') + 텔레그램 EXIT 알림 |
+| **C** | 양쪽 ✓ but 방향 다름 | 사용자가 반대 포지션 잡음 → 옛 SL 청소 + 봇 포지션 close + 새 포지션 추적 |
+
 ---
 
 ## 13. 모니터링 시스템
@@ -681,16 +764,25 @@ TA 도달 시 50% 청산 + 나머지 50% TSL로 추적.
 
 ### 13.2 웹 대시보드 (http://18.183.150.105:8081)
 
-**6탭 구성**:
+**6탭 구성** (2026-04-28 라이브 갱신 강화):
 
-| 탭 | 기능 | 새로고침 |
-|---|---|---|
-| **Dashboard** | Balance/MDD/Price/Trades + 5중 필터 상태 + 진입 판정 배너 | 5초 |
-| **Chart** | Lightweight Charts 6개월 (17,280봉), 기본 7일 표시 | 5분 |
-| **Trades** | 거래 히스토리 (페이지네이션) | 10초 |
-| **Balance** | SOL 전용 누적 PnL + daily_summary.log | 15초 |
-| **Errors** | error_*.log 필터 (ERROR/WARNING) | 30초 |
-| **Logout** | 세션 종료 | — |
+| 탭 | 기능 | meta refresh | JS polling |
+|---|---|---|---|
+| **Dashboard** | Balance/MDD/Price + 포지션(진입시각/보유시간/Lev) + 5중 필터 + 진입 판정 배너 | 30초 (fallback) | **시계 1초 / 데이터 10초** |
+| **Chart** | Lightweight Charts 6개월 (17,280봉), 기본 7일 표시 | — | 5분 |
+| **Trades** | 거래 히스토리 (페이지네이션) | 10초 | 시계 1초 |
+| **Balance** | SOL 전용 누적 PnL + daily_summary.log | 15초 | 시계 1초 |
+| **Errors** | error_*.log 필터 (ERROR/WARNING) | 30초 | 시계 1초 |
+| **Logout** | 세션 종료 | — | — |
+
+**모든 페이지 공통 헤더**: `🪙 SOL V1 🕐 YYYY-MM-DD HH:MM:SS` (JS Date 1초 갱신, 서버 호출 0)
+
+**Dashboard 라이브 갱신 항목 (10초 polling)**:
+- SOL Price (`/api/status` → `live-sol-price`)
+- 포지션 현재가/PnL/ROI (`live-pos-current/pnl/roi`)
+- 보유 시간 (1초 클라이언트 재계산, `data-entry-ts` 기반)
+- V12 5중 필터 값 (ADX/RSI/LR/Mass/ATR ratio + EMA9/SMA400 + cross 방향)
+- 레버리지 표시 (사용자 설정 동적 반영)
 
 ### 13.3 대시보드 필터 상태 표시
 
@@ -717,14 +809,35 @@ ADX ≥ 22
 🟢 Ready: Mass 반전 트리거
 ```
 
-### 13.5 텔레그램 알림
+### 13.5 텔레그램 알림 (2026-04-28 ETH V8 패턴 강화)
 
-**이벤트**:
+#### 알림 이벤트
 - 봇 시작/종료
-- 포지션 진입 (side, size, price)
-- 포지션 청산 (reason, PnL)
-- 일일 요약 (UTC 00:00)
+- 포지션 진입 (side, size, price, leverage)
+- 포지션 청산 (reason, PnL, 실체결가)
+- 사용자 수동 포지션 감지
+- 사용자 레버리지 변경 감지 (1회)
+- 3시간 자동 상태 리포트 (Position 섹션 포함: 진입시각/보유시간/ROI/PnL)
+- Skip2@4loss 트리거
 - 에러 경고
+
+#### 한글 명령어 (대소문자/공백 무관, `/sol` 또는 `/SOL`)
+
+| 명령 | 기능 |
+|------|------|
+| `/help` | 명령어 목록 (공용) |
+| `/sol 상태` | 봇 전체 상태 (Price, Lev, Position, Balance, 통계) |
+| `/sol 포지션` | 포지션 상세 (방향/Entry/Current/Lev/Size/Margin/PnL/ROI/SL/TSL/진입시각/보유시간) |
+| `/sol 잔액` | 잔액 (Wallet/Available/Peak/MDD) |
+| `/sol 최근거래` | 최근 5건 (DB trades → entries 폴백 → 메모리 폴백) |
+| `/sol 봇정지` | systemd Restart 트리거 (자동 재시작) |
+| `/sol 봇시작` | 상태 확인 후 재시작 |
+| `/sol 청산` | 시장가 청산 + state 정리 + DB 저장 |
+
+#### 메시지 큐 + 묵은 메시지 스킵
+- `_send_loop` (asyncio.Queue) → 전송 실패 시 누락 방지
+- `_skip_old_updates` → 봇 재시작 시 묵은 명령어 폭격 방지
+- 재시도 3회 (HTTP 200 외 모두), 400/401/403/404는 즉시 중단
 
 **봇 토큰**: `.env`의 `TELEGRAM_BOT_TOKEN` (안전하게 보관)
 
@@ -1045,6 +1158,22 @@ sudo systemctl status sol-bot.service
 | Telegram Server disconnected | ✅ 해결 | 재시도 로직 (6f34f31) |
 | 마진모드 -4067 WARNING 반복 | ✅ 해결 | INFO 로 강등 (6f34f31) |
 | **차트 최근 봉 얇은 "-" 고정 현상** | ✅ **해결 (2026-04-24)** | **df_sol 진행 중 봉 덮어쓰기 (a6dc5ca)** |
+| SL orphan 누적 (단일 ID 추적의 한계) | ✅ **해결 (2026-04-28)** | `_cancel_all_sl_orders` + STOP_MARKET fallback (3e8c773) |
+| POSITION_SYNC 60초 → 사용자 수동 행동 감지 늦음 | ✅ **해결 (2026-04-28)** | 10초로 단축 (3e8c773) |
+| 사용자 반대 방향 포지션 진입 시 봇 추적 불가 | ✅ **해결 (2026-04-28)** | `_sync_position` 케이스 C 추가 (3e8c773) |
+| 외부 청산 PnL 부정확 (current_price 사용) | ✅ **해결 (2026-04-28)** | `get_last_exit_price` 추가 (3e8c773) |
+| 봇 재시작 시 묵은 텔레그램 명령어 폭격 | ✅ **해결 (2026-04-28)** | `_skip_old_updates` (3e8c773) |
+| 텔레그램 명령어 대소문자/공백 차이로 미인식 | ✅ **해결 (2026-04-28)** | `/sol 한글` 패턴 + 대소문자 무관 파서 (3e8c773) |
+| 사용자 임의 레버리지(5x/10x) 봇 미인지 | ✅ **해결 (2026-04-28)** | `get_exchange_position` leverage 동적 추출 (5bb4f4f) |
+| 대시보드 시계 5초 단위 (1초 요청) | ✅ **해결 (2026-04-28)** | JS Date 1초 갱신 (21d4a83) |
+| 다른 페이지(Chart/Trades/Balance/Errors) 시계 정지 | ✅ **해결 (2026-04-28)** | 4개 페이지에 updateClock 추가 (eaaee50) |
+| 포지션 진입시각/보유시간 미표시 | ✅ **해결 (2026-04-28)** | `data-entry-ts` 기반 1초 재계산 (03f8384) |
+| Dashboard 데이터 polling 1초 부담 | ✅ **해결 (2026-04-28)** | 10초로 조정 + 필터 라이브 갱신 (9180a3e) |
+| 수동 포지션 진입 시 DB save_entry 누락 | ✅ **해결 (2026-04-28)** | `_check_manual_position`에 save_entry 호출 추가 (97c381f) |
+| `/sol 최근거래` DB 비어있을 때 정보 없음 | ✅ **해결 (2026-04-28)** | trades→entries→메모리 3단 폴백 (97c381f) |
+| REV cross 진단 로그 부재 | ✅ **해결 (2026-04-28)** | REV-CHECK / REV TRIGGERED / REV-SKIP 로그 추가 (42b5753) |
+| /sol 상태/포지션 ROI=-100% 잘못 표시 | ✅ **해결 (2026-04-28)** | price 폴백(df_sol close) 추가 (d1feb99) |
+| 3시간 텔레그램 리포트에 포지션 정보 누락 | ✅ **해결 (2026-04-28)** | notify_status에 Position 섹션 추가 (d1feb99) |
 
 ### 19.3.1 차트 깨짐 해결 상세 (2026-04-24, 7차 수정 여정)
 
@@ -1139,7 +1268,8 @@ for (const bar of d.last_bars) {
 
 ### 20.2 중기 (2026 Q3)
 
-- [ ] 레버리지 2x → 10x 상향 (안정성 확인 후)
+- [x] **레버리지 2x → 5x 상향** (2026-04-28 완료, 추가 5x → 10x 상향 검토 중)
+- [ ] 5x → 10x 상향 (5x 안정성 확인 후)
 - [ ] BTC regime 확장 (1d EMA200 추가)
 - [ ] Partial Exit 최적화 (30% / 50% / 70%)
 - [ ] 추가 자산 (ETH V8 보유 중) 상관성 분석
@@ -1281,8 +1411,8 @@ bedcfee  SOL V1 실전 봇 최초 커밋 (4731줄)
 ---
 
 **문서 작성**: Claude Code
-**최종 수정**: 2026-04-24 17:00 KST (차트 깨짐 근본 해결 반영)
-**상태**: 운영 중 (sol-bot.service active, Wilder + 서버 df_sol 버그 수정 적용)
+**최종 수정**: 2026-04-28 KST (ETH V8 패턴 통합 + 레버리지 5x + 텔레그램 한글 명령어)
+**상태**: 운영 중 (sol-bot.service active, Wilder + 서버 df_sol + ETH V8 패턴 + Lev 5x 적용)
 
 ## 📝 문서 개정 이력
 
@@ -1290,5 +1420,5 @@ bedcfee  SOL V1 실전 봇 최초 커밋 (4731줄)
 |---|---|---|
 | v1.0 | 2026-04-23 | 초기 기획안 작성 (20 섹션) |
 | v1.1 | 2026-04-23 | Wilder 일치 수정 반영 |
-| **v1.2** | **2026-04-24** | **차트 깨짐 7차 수정 이력 추가 (19.3.1 신설)** |
-| v1.2 | 2026-04-24 | Watch 상태 영속화, 에러 로그 정리, 재시도 로직 추가 |
+| v1.2 | 2026-04-24 | 차트 깨짐 7차 수정 이력 추가 (19.3.1 신설) + Watch 영속화 + 에러 로그 정리 |
+| **v1.3** | **2026-04-28** | **ETH V8 패턴 통합 (대규모)**:<br>• 레버리지 2x → **5x** + 사용자 동적 추적<br>• `_cancel_all_sl_orders` + `STOP_MARKET` fallback<br>• `get_last_exit_price` 외부 청산 실체결가<br>• POSITION_SYNC 60→10초<br>• `_sync_position` 3-케이스 (A/B/C)<br>• 텔레그램 메시지 큐 + 한글 명령어 + 묵은 메시지 스킵<br>• REV 진단 로그 (REV-CHECK/TRIGGERED/SKIP)<br>• 수동 포지션 DB save_entry 누락 수정<br>• 대시보드 시계 1초 / 데이터 10초 라이브<br>• 포지션 진입시각/보유시간/Leverage 표시<br>• 5개 페이지 시계 동기화<br>• 3시간 리포트 포지션 섹션 추가 |

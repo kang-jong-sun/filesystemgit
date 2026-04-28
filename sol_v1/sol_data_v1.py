@@ -6,7 +6,7 @@ V1: V12:Mass 75:25 Mutex
 - SOL 5분봉 수집 → 15분봉 리샘플링 (V12/Mass 공통)
 - BTC 5분봉 → 1시간봉 리샘플링 (Margin Scaling용)
 - WebSocket 실시간 가격
-- 지표: EMA(9), SMA(400), ADX(14), RSI(14), LR slope(14), ATR(14/50), Mass Index
+- 지표: EMA(9), SMA(400), ADX(20) Wilder, RSI(10) Wilder, LR slope(14), ATR(14/50), Mass Index
 """
 
 import asyncio

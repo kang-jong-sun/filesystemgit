@@ -3,9 +3,10 @@ SOL/USDT 선물 주문 실행 및 포지션 관리
 V1: V12:Mass 75:25 + Skip2@4loss + 12.5% Compound
 
 - Binance Futures 시장가 주문
-- 격리 마진 / 10x 레버리지
-- SL stop-loss 주문 자동 설정
-- 포지션 조회 및 동기화
+- 격리 마진 / 5x 레버리지 (테스트 단계, 원래 전략 10x)
+- SL stop-loss 주문 (STOP_MARKET fallback + orphan 청소)
+- 포지션 조회 + 사용자 레버리지 동적 추적
+- 외부 청산 실체결가 조회 (get_last_exit_price)
 - 거래 통계 SQLite
 """
 
