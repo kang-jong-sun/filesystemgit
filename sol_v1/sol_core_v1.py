@@ -81,6 +81,8 @@ SL_PCT_BASE = 3.8                # SL -3.8%
 TA_PCT_BASE = 5.6                # TA +5.6% (TSL 활성화)
 TSL_PCT_BASE = 10.0              # TSL -10% from peak
 USE_REV = True                   # EMA9 reverse cross → 반전 청산
+USE_REV_GUARD = True             # ★ 2026-04-28: 추세-역방향 가드 (cross 봉 놓침 방지)
+REV_GUARD_BARS = 4               # 진입 후 N봉 경과 + 추세 역방향이면 강제 EXIT (15m × 4 = 1시간)
 
 # US Session (UTC 16-24) Aggressive
 SL_PCT_US = 4.0
@@ -571,13 +573,32 @@ class TradingCore:
                                     f"EMA9 ${fm:.3f} vs SMA400 ${sm:.3f} | "
                                     f"prev EMA9 ${pfm:.3f} vs SMA400 ${psm:.3f} | "
                                     f"position={pos_dir} tsl_active={pos.tsl_active}")
-                # REV 발동
+                # REV 발동 (cross 봉)
                 if (pos.direction == 1 and dn) or (pos.direction == -1 and up):
                     signal_log.info(f"V12 REV TRIGGERED @ bar#{bar_idx} price ${px:.3f} | "
                                     f"position={pos_dir} → EXIT "
                                     f"(EMA9 ${fm:.3f} {'<' if dn else '>'} SMA400 ${sm:.3f}, 반대 방향)")
                     return Signal(action='EXIT', direction=pos.direction, exit_type='REV',
                                   exit_price=px, reason=f"REV (EMA9 cross {pos_dir} → {'SHORT' if dn else 'LONG'})")
+
+                # ★ REV 가드: cross 봉 놓침 방지 (추세-역방향 가드, 2026-04-28)
+                # 진입 후 REV_GUARD_BARS(4봉=1시간) 이상 경과 + 추세 역방향이면 강제 EXIT
+                # 이유: dn/up은 cross 발생 그 1봉에서만 True → 데이터 동기화 차이로 그 봉을 놓치면 영영 못 잡음
+                if USE_REV_GUARD:
+                    bars_held = bar_idx - pos.entry_bar
+                    if bars_held >= REV_GUARD_BARS:
+                        counter_trend = ((pos.direction == 1 and fm < sm) or
+                                         (pos.direction == -1 and fm > sm))
+                        if counter_trend:
+                            new_dir_str = 'SHORT' if pos.direction == 1 else 'LONG'
+                            signal_log.info(f"V12 REV-GUARD @ bar#{bar_idx} price ${px:.3f} | "
+                                            f"position={pos_dir} held={bars_held}bars (≥{REV_GUARD_BARS}) | "
+                                            f"trend reversed (EMA9 ${fm:.3f} "
+                                            f"{'<' if pos.direction == 1 else '>'} SMA400 ${sm:.3f}) "
+                                            f"→ EXIT (cross 봉 놓침 가드)")
+                            return Signal(action='EXIT', direction=pos.direction, exit_type='REV',
+                                          exit_price=px,
+                                          reason=f"REV-GUARD ({bars_held}봉 후 추세 역전 {pos_dir}→{new_dir_str})")
         elif USE_REV and pos.entry_mode == EntryMode.V12 and pos.tsl_active:
             # TSL 활성 시 REV 비활성 — 1회만 로깅 (peak_roi 도달 시점 직후)
             pass  # TSL 우선이라 정상
