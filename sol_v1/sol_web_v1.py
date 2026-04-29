@@ -694,6 +694,7 @@ body{font-family:-apple-system,Segoe UI,sans-serif;background:#0a0e1a;color:#e0e
 <script>
 let chart, candleSeries, ema9Series, sma400Series;
 let currentBar = null;  // 진행 중 봉 추적 (실시간 업데이트용)
+let entryLine = null, slLine = null;  // ★ ETH V8 패턴: priceLine 누적 방지용
 
 function initChart() {
   const container = document.getElementById('chart');
@@ -765,14 +766,18 @@ async function loadChart(limit) {
       candleSeries.setMarkers(data.markers);
     }
 
+    // ★ ETH V8 패턴: 기존 라인 제거 후 새로 추가 (5분마다 재로드 시 누적 방지)
+    if (entryLine) { candleSeries.removePriceLine(entryLine); entryLine = null; }
+    if (slLine) { candleSeries.removePriceLine(slLine); slLine = null; }
+
     // 현재 포지션 SL 라인
     if (data.position) {
       const p = data.position;
-      candleSeries.createPriceLine({
+      entryLine = candleSeries.createPriceLine({
         price: p.entry_price, color: '#eab308', lineWidth: 1, lineStyle: 2,
         axisLabelVisible: true, title: 'ENTRY ' + (p.direction === 1 ? 'L' : 'S'),
       });
-      candleSeries.createPriceLine({
+      slLine = candleSeries.createPriceLine({
         price: p.sl_price, color: '#ef4444', lineWidth: 1, lineStyle: 2,
         axisLabelVisible: true, title: 'SL',
       });
@@ -816,23 +821,16 @@ async function loadChart(limit) {
   }
 }
 
-// 초기 로드: 6개월 전체(17,280봉) 단 1회만 로드
-// 이후 실시간 업데이트는 updateCurrentBar() 5초 폴링으로 처리
-// 15분 봉 경계 크로싱 시 자동으로 새 봉 생성
-// ★ loadChart setInterval 제거: setData/update 충돌 제거
-// (페이지 새로고침 시에만 전체 재로드)
+// ── 초기화 ──
 initChart();
 loadChart(17280);
 
-// ★ 서버 데이터 그대로 반영 (추정 로직 완전 제거)
-// 서버의 df_sol 마지막 봉 OHLC를 5초마다 가져와서 차트에 직접 적용
-// → 봉 경계 계산/OHLC 추정 등 모든 프론트 추정 로직 제거
-//
-// ★★ 2026-04-28 추가: candleSeries lastTime 추적해서 누락 봉 자동 catch-up
-//    Lightweight Charts의 update(time)는 lastTime보다 작은 time을 무시하므로,
-//    페이지를 오래 켜둔 채 새 봉이 여러 개 마감되면 일부가 누락될 수 있음.
-//    → lastTime보다 큰 봉은 추가, 같으면 update, 작으면 skip (명시적)
-let lastChartTime = 0;
+// ★★ ETH V8 패턴 (eth_web_v8 / dashboard.html line 421):
+//    5분마다 setData()로 차트 전체 재로드 → 시간 순서 모순/누락 자체 차단
+//    update()는 현재 진행봉(currentBar) OHLC 누적에만 사용
+setInterval(() => loadChart(17280), 300000);
+
+// 5초마다 현재가 + 진행봉 OHLC 누적 (ETH V8 dashboard.html line 367-386 동일 패턴)
 async function updateCurrentBar() {
   try {
     const resp = await fetch('/api/status', { cache: 'no-store' });
@@ -843,67 +841,25 @@ async function updateCurrentBar() {
       document.getElementById('current-price').textContent = '$' + d.price.toFixed(3);
     }
 
-    if (d.last_bars && Array.isArray(d.last_bars) && candleSeries) {
-      // 시간 오름차순 정렬 보장 후 update
-      const bars = [...d.last_bars].sort((a, b) => a.time - b.time);
-      let updated = 0, added = 0, skipped = 0;
-      for (const bar of bars) {
-        if (bar.time < lastChartTime) {
-          skipped++;
-          continue;
-        }
-        try {
-          candleSeries.update(bar);
-          if (bar.time > lastChartTime) {
-            lastChartTime = bar.time;
-            added++;
-          } else {
-            updated++;
-          }
-        } catch (e) {
-          skipped++;
-        }
-      }
-      // 누락된 봉이 너무 많으면 (lastChartTime이 오래된 경우) 전체 재로드
-      // — 페이지 오래 켜둔 사용자 자동 복구
+    if (d.price && candleSeries && currentBar) {
+      // KST 15분봉 시간 계산 (서버 타임스탬프와 동일 규칙)
       const nowKstSec = Math.floor(Date.now() / 1000) + 9 * 3600;
-      const expectedLast = nowKstSec - (nowKstSec % 900);
-      if (expectedLast - lastChartTime > 900 * 6) {  // 6봉(1.5h) 이상 차이 시 재로드
-        console.log('차트 6봉 이상 뒤처짐 → 전체 재로드');
-        loadChart(17280);
-        lastChartTime = 0;
+      const barTime = nowKstSec - (nowKstSec % 900);  // 15분 = 900초
+
+      if (barTime !== currentBar.time) {
+        // 새 15분봉 시작 → 5분 후 setData()로 정식 데이터로 교체됨
+        currentBar = { time: barTime, open: d.price, high: d.price, low: d.price, close: d.price };
+      } else {
+        // 진행 중 봉 OHLC 누적
+        currentBar.high = Math.max(currentBar.high, d.price);
+        currentBar.low = Math.min(currentBar.low, d.price);
+        currentBar.close = d.price;
       }
+      try { candleSeries.update(currentBar); } catch(e) {}
     }
   } catch(e) {}
 }
-
-// 초기 lastChartTime 설정 (loadChart 직후)
-setTimeout(() => {
-  if (currentBar && currentBar.time) lastChartTime = currentBar.time;
-}, 2000);
-
 setInterval(updateCurrentBar, 5000);
-
-// ★ 5분마다 최근 마감 봉 백필 (누락 봉 자동 보정)
-async function backfillRecentBars() {
-  try {
-    const resp = await fetch('/api/candles?limit=20', { cache: 'no-store' });
-    if (!resp.ok) return;
-    const data = await resp.json();
-    if (data.candles && data.candles.length > 0 && candleSeries) {
-      // 시간 오름차순으로 정렬되어 있다고 가정
-      for (const bar of data.candles) {
-        if (bar.time >= lastChartTime - 900) {  // 안전 여유: 1봉
-          try {
-            candleSeries.update(bar);
-            if (bar.time > lastChartTime) lastChartTime = bar.time;
-          } catch (e) {}
-        }
-      }
-    }
-  } catch(e) {}
-}
-setInterval(backfillRecentBars, 300000);  // 5분
 
 function updateClock(){const d=new Date(),p=n=>String(n).padStart(2,'0');const s=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());const e=document.getElementById('live-hdr-time');if(e)e.textContent=s;}
 updateClock();setInterval(updateClock,1000);
