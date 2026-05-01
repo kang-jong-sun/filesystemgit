@@ -188,7 +188,10 @@ class SOLTradingBot:
         self._last_status_report = 0.0
         self._last_state_save = 0.0
         self._last_heartbeat = 0.0
-        self._last_processed_bar_idx = -1
+        # ★ 2026-05-01: ring buffer 버그 수정
+        #   기존 _last_processed_bar_idx는 ring buffer로 항상 17278 고정 → 새 봉 인지 불가
+        #   timestamp(epoch sec) 기반으로 변경하여 매 봉마다 정상 평가
+        self._last_processed_bar_ts = 0.0
         self._start_time = time.time()  # uptime 계산용
 
     async def initialize(self):
@@ -407,15 +410,18 @@ class SOLTradingBot:
         if last_bar is None:
             return
 
+        # ★ 2026-05-01: bar_idx 대신 bar timestamp(epoch sec) 비교
+        #   ring buffer로 bar_idx가 항상 같은 값(17278) 고정되는 버그 회피
         bar_idx = last_bar['bar_idx']
-        if bar_idx <= self._last_processed_bar_idx:
-            return  # 이미 처리한 봉
+        bar_ts = last_bar['timestamp']
+        if bar_ts <= self._last_processed_bar_ts:
+            return  # 이미 처리한 봉 (timestamp 기준)
 
         # ★ 신선도 체크: bar.timestamp가 현재 시간과 30분 이내여야 함
-        bar_age = time.time() - last_bar['timestamp']
+        bar_age = time.time() - bar_ts
         if bar_age > 1800:  # 30분 초과 → 과거 봉 (catch-up 중)
             self.logger.debug(f"Skipping stale bar (age {bar_age/60:.1f}min) - catch-up in progress")
-            self._last_processed_bar_idx = bar_idx  # mark as processed
+            self._last_processed_bar_ts = bar_ts  # mark as processed
             return
 
         # ★ Signal-Market price gap 체크: bar.close와 current price 차이가 2% 초과면 무시
@@ -423,10 +429,10 @@ class SOLTradingBot:
             price_gap = abs(self.data.current_price - last_bar['close']) / last_bar['close']
             if price_gap > 0.02:  # 2% gap → 데이터 불일치
                 self.logger.warning(f"Bar-Market price gap {price_gap*100:.1f}% (bar ${last_bar['close']:.3f} vs market ${self.data.current_price:.3f}) - skipping signal")
-                self._last_processed_bar_idx = bar_idx
+                self._last_processed_bar_ts = bar_ts
                 return
 
-        self._last_processed_bar_idx = bar_idx
+        self._last_processed_bar_ts = bar_ts
 
         # 지표 추출
         ind = self.data.get_indicators_at(bar_idx)
@@ -483,8 +489,9 @@ class SOLTradingBot:
             sig.position_size_usd = result['position_size_usd']
             sig.sl_price = sig.entry_price * (1 - sig.__dict__['sl_pct']/100) if sig.direction == 1 else sig.entry_price * (1 + sig.__dict__['sl_pct']/100)
 
-            # Core state 업데이트
-            self.core.apply_entry(sig, bar_idx=self._last_processed_bar_idx, timestamp=time.time())
+            # Core state 업데이트 — bar_idx 그대로 전달 (entry_bar 저장용, 이후 비교는 timestamp로)
+            current_bar_idx = self.data.get_latest_index() if self.data else 0
+            self.core.apply_entry(sig, bar_idx=current_bar_idx, timestamp=time.time())
 
             # 📈 trades.log 기록
             mode_str = 'V12' if sig.entry_mode == 1 else 'MASS'

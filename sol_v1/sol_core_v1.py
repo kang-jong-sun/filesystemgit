@@ -483,8 +483,10 @@ class TradingCore:
         h_ = bar['high']
         l_ = bar['low']
 
-        # Pyramiding (V12만)
-        if pos.use_pyr and pos.entry_mode == EntryMode.V12 and bar_idx > pos.entry_bar:
+        # Pyramiding (V12만) — ★ 2026-05-01: bar_idx ring buffer 버그 회피, timestamp 비교
+        _bar_ts_pyr = bar.get('timestamp', 0) if bar else 0
+        _pyr_after_entry = (_bar_ts_pyr > pos.entry_time) if (_bar_ts_pyr > 0 and pos.entry_time > 0) else (bar_idx > pos.entry_bar)
+        if pos.use_pyr and pos.entry_mode == EntryMode.V12 and _pyr_after_entry:
             if pos.leg_count < 3:
                 target2 = pos.entry_price_leg1 * (1 + pos.leg2_pct/100.0) if pos.direction == 1 else pos.entry_price_leg1 * (1 - pos.leg2_pct/100.0)
                 target3 = pos.entry_price_leg1 * (1 + pos.leg3_pct/100.0) if pos.direction == 1 else pos.entry_price_leg1 * (1 - pos.leg3_pct/100.0)
@@ -584,8 +586,13 @@ class TradingCore:
                 # ★ REV 가드: cross 봉 놓침 방지 (추세-역방향 가드, 2026-04-28)
                 # 진입 후 REV_GUARD_BARS(4봉=1시간) 이상 경과 + 추세 역방향이면 강제 EXIT
                 # 이유: dn/up은 cross 발생 그 1봉에서만 True → 데이터 동기화 차이로 그 봉을 놓치면 영영 못 잡음
+                # ★ 2026-05-01: bar_idx ring buffer 버그 회피 — timestamp 기반 bars_held 계산
                 if USE_REV_GUARD:
-                    bars_held = bar_idx - pos.entry_bar
+                    bar_ts = bar.get('timestamp', 0) if bar else 0
+                    if bar_ts > 0 and pos.entry_time > 0:
+                        bars_held = int((bar_ts - pos.entry_time) / 900)  # 15분 = 900초
+                    else:
+                        bars_held = bar_idx - pos.entry_bar  # fallback
                     if bars_held >= REV_GUARD_BARS:
                         counter_trend = ((pos.direction == 1 and fm < sm) or
                                          (pos.direction == -1 and fm > sm))
