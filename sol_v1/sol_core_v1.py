@@ -125,11 +125,17 @@ MASS_TSL_PCT = 8.0               # Mass TSL -8%
 # ═══════════════════════════════════════════════════════════
 # Global Parameters
 # ═══════════════════════════════════════════════════════════
-LEVERAGE = 5                     # 🧪 TEST MODE: 5x (원래 10x, 이전 2x)
+LEVERAGE = 5                     # ✅ 실전: 5x 고정 (2026-05-01 사용자 명시)
 FEE_RATE = 0.0005                # 0.05% taker
 SLIPPAGE = 0.0005                # 0.05% slippage
 
-# Compound Config (V33 최적)
+# ═══════════════════════════════════════════════════════════
+# 실전 모드: 고정 마진 사이징 (2026-05-01)
+# ═══════════════════════════════════════════════════════════
+USE_FIXED_MARGIN = True          # ✅ True: 매 진입 $100 마진 고정 (compound/conf/margin_mult 우회)
+FIXED_MARGIN_USD = 100.0         # ✅ 진입당 마진 $100 → 명목 $500 (Lev 5x)
+
+# Compound Config (USE_FIXED_MARGIN=False일 때만 사용 — 백테스트/시뮬레이션)
 COMPOUND_PCT = 0.125             # 12.5% of balance
 ALLOC_V12 = 0.75                 # Strategy A 75%
 ALLOC_MASS = 0.25                # Strategy B 25%
@@ -755,16 +761,19 @@ class TradingCore:
         score = compute_confidence_score(adx_v, rsi_v, lr_v)
         conf_mult = confidence_multiplier(score)
 
-        # ★ MAX_CAPITAL cap 적용 (바이낸스 유동성 대비)
-        effective_capital = min(capital, MAX_CAPITAL)
-
-        # Final margin = effective × compound_pct × alloc_v12 × margin_mult × conf_mult
-        base_margin = effective_capital * COMPOUND_PCT * ALLOC_V12
-        margin = base_margin * margin_mult * conf_mult
-
-        # Safety: min/max bounds
-        if margin < 10.0 or margin > capital * 0.80:
-            return Signal(action='NONE', reason=f'Margin ${margin:.0f} out of bounds')
+        # ✅ 실전 모드: 고정 마진 우선 (2026-05-01)
+        if USE_FIXED_MARGIN:
+            margin = FIXED_MARGIN_USD
+            # 잔액 부족 차단
+            if capital < margin:
+                return Signal(action='NONE', reason=f'Balance ${capital:.0f} < margin ${margin:.0f}')
+        else:
+            # 시뮬레이션 모드 (compound 기반)
+            effective_capital = min(capital, MAX_CAPITAL)
+            base_margin = effective_capital * COMPOUND_PCT * ALLOC_V12
+            margin = base_margin * margin_mult * conf_mult
+            if margin < 10.0 or margin > capital * 0.80:
+                return Signal(action='NONE', reason=f'Margin ${margin:.0f} out of bounds')
 
         # Position size = margin × leverage
         position_size = margin * LEVERAGE
@@ -828,15 +837,17 @@ class TradingCore:
                 signal_log.info(f"Mass SKIP {dir_str} @ bar#{bar_idx} | Skip Same Direction (last_exit_dir={self.last_exit_dir})")
                 return Signal(action='NONE', reason='Mass: skip same direction')
 
-            # ★ MAX_CAPITAL cap 적용 (바이낸스 유동성 대비)
-            effective_capital = min(capital, MAX_CAPITAL)
-
-            # Position size
-            base_margin = effective_capital * COMPOUND_PCT * ALLOC_MASS
-            margin = base_margin  # Mass는 Confidence Sizing 미적용
-
-            if margin < 10.0 or margin > capital * 0.30:
-                return Signal(action='NONE', reason=f'Mass margin out of bounds')
+            # ✅ 실전 모드: 고정 마진 우선 (2026-05-01)
+            if USE_FIXED_MARGIN:
+                margin = FIXED_MARGIN_USD
+                if capital < margin:
+                    return Signal(action='NONE', reason=f'Mass balance ${capital:.0f} < margin ${margin:.0f}')
+            else:
+                effective_capital = min(capital, MAX_CAPITAL)
+                base_margin = effective_capital * COMPOUND_PCT * ALLOC_MASS
+                margin = base_margin
+                if margin < 10.0 or margin > capital * 0.30:
+                    return Signal(action='NONE', reason=f'Mass margin out of bounds')
 
             position_size = margin * LEVERAGE
             entry_price = bar['close']
